@@ -4,6 +4,7 @@
     "displayName": "OC1 RP2040 Card",
     "mcu": "rp2040",
     "clock": {
+        "xoscHz": 12000000,
         "sysHz": 133000000
     },
     "flash": {
@@ -13,6 +14,7 @@
     "pins": [
         { "pin": 0, "label": "DEBUG_TX", "signal": "uart0_tx" },
         { "pin": 1, "label": "DEBUG_RX", "signal": "uart0_rx" },
+        { "pin": 2, "label": "LED_STRIP", "signal": "pio0" },
         { "pin": 4, "label": "I2C_SDA", "signal": "i2c0_sda", "pull": "up" },
         { "pin": 5, "label": "I2C_SCL", "signal": "i2c0_scl", "pull": "up" },
         { "pin": 16, "label": "SPI_MISO", "signal": "spi0_rx" },
@@ -28,6 +30,7 @@
         { "kind": "uart", "id": "uart0", "baud": 115200, "tx": "DEBUG_TX", "rx": "DEBUG_RX" },
         { "kind": "i2c", "id": "i2c0", "sda": "I2C_SDA", "scl": "I2C_SCL", "freqHz": 400000 },
         { "kind": "spi", "id": "spi0", "sck": "SPI_SCK", "mosi": "SPI_MOSI", "miso": "SPI_MISO", "freqHz": 1000000 },
+        { "kind": "pio", "id": "pio0", "sm": 0, "pin": "LED_STRIP", "program": "ws2812" },
         { "kind": "pwm", "id": "pwm2_b", "pin": "BUZZER", "freqHz": 2000 },
         { "kind": "adc", "id": "adc0", "pin": "AIN0" }
     ],

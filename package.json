@@ -19,6 +19,7 @@
   },
   "workspaces": [
     "hello-world",
+    "board-tools",
     "stfide-gen",
     "browser-app",
     "electron-app"

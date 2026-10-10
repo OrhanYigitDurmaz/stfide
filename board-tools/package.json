@@ -1,0 +1,33 @@
+{
+  "name": "board-tools",
+  "keywords": [
+    "theia-extension"
+  ],
+  "version": "0.0.0",
+  "files": [
+    "lib",
+    "src"
+  ],
+  "dependencies": {
+    "@theia/core": "1.76.0",
+    "@theia/workspace": "1.76.0",
+    "stfide-gen": "0.0.0"
+  },
+  "devDependencies": {
+    "typescript": "~5.4.5",
+    "rimraf": "^5.0.0",
+    "@types/react": "^18.3.0"
+  },
+  "scripts": {
+    "prepare": "npm run clean && npm run build",
+    "clean": "rimraf lib",
+    "build": "tsc",
+    "watch": "tsc -w"
+  },
+  "theiaExtensions": [
+    {
+      "frontend": "lib/browser/board-tools-frontend-module",
+      "backend": "lib/node/board-tools-backend-module"
+    }
+  ]
+}

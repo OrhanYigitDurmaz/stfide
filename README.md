@@ -24,6 +24,7 @@ This is an npm-workspaces monorepo orchestrated with lerna:
 | `hello-world/` | Example Theia extension: adds the **Say Hello** command (F1 → "Say Hello" → "Hello World!" notification) |
 | `stfide-gen/` | Board configuration **code generator** (CLI + library) for custom RP2040 / ESP32-S3 cards |
 | `boards/` | Board definition files — the source of truth for each custom card |
+| `board-tools/` | Theia extension: **Board Configurator** view + RPC backend that drives `stfide-gen` from inside the IDE |
 
 `browser-app` and `electron-app` each declare the `@theia/*` packages (plus `hello-world` in this repo)
 that compose the product. Adding/removing features is done by adding/removing `@theia/*` packages there.
@@ -51,6 +52,30 @@ node lib/cli.js generate ../boards/oc1-rp2040.board.json \
 Generated output is deterministic (same board file → byte-identical code), so it can be committed
 and reviewed in diffs. The board file schema and emitter development notes live in
 [`stfide-gen/README.md`](stfide-gen/README.md).
+
+Additional codegen features:
+
+- **PIO (RP2040)** — a `pio` peripheral entry routes a pin to `GPIO_FUNC_PIO0`/`GPIO_FUNC_PIO1`
+  (`{ "kind": "pio", "id": "pio0", "sm": 0, "pin": "LED_STRIP", "program": "ws2812" }`); the
+  application loads the program.
+- **Clock tree** — `clock.xoscHz` (crystal) and `clock.sysHz` produce clock setup code plus
+  actionable comments (pico-sdk board-header overrides, ESP-IDF sdkconfig keys, overclock notes).
+- **USER CODE blocks** — generated `board_init.c` / `board_init.cpp` carry
+  `/* USER CODE BEGIN/END */` markers; regeneration **merges** existing content instead of
+  overwriting it — the CLI `generate` command and the IDE's Generate button behave identically
+  (use `--no-merge` to force a clean CLI overwrite).
+
+## Board Configurator (inside the IDE)
+
+The `board-tools` extension embeds the board workflow in stfide itself:
+
+- Open it with **F1 → "Board Configurator"** (docks in the right area).
+- It lists the `boards/*.board.json` files of the open workspace and shows pins, peripherals,
+  LEDs and clock settings.
+- **Validate** checks the selected board; **Generate Arduino / Pico / ESP-IDF** runs `stfide-gen`
+  on the backend and writes to `<workspace>/generated/<target>/` (user edits between
+  `USER CODE` markers are preserved on regeneration); **Open JSON** opens the board file in the
+  editor.
 
 ## Current state
 

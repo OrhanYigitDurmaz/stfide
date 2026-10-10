@@ -1,0 +1,96 @@
+#board-tools-widget {
+    padding: 8px;
+    color: var(--theia-foreground);
+    background: var(--theia-editor-background);
+    overflow: auto;
+}
+
+#board-tools-widget h4 {
+    margin: 12px 0 4px 0;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+#board-tools-widget .board-tools-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+#board-tools-widget .board-tools-title {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+#board-tools-widget .board-tools-board-list {
+    list-style: none;
+    margin: 0 0 12px 0;
+    padding: 0;
+}
+
+#board-tools-widget .board-tools-board-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 4px 8px;
+    cursor: pointer;
+    border: 1px solid transparent;
+}
+
+#board-tools-widget .board-tools-board-item:hover {
+    background: var(--theia-list-hoverBackground);
+}
+
+#board-tools-widget .board-tools-board-item.selected {
+    background: var(--theia-list-activeSelectionBackground);
+    color: var(--theia-list-activeSelectionForeground);
+}
+
+#board-tools-widget .board-tools-board-meta {
+    opacity: 0.75;
+    font-size: 11px;
+}
+
+#board-tools-widget .board-tools-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    font-size: 12px;
+    opacity: 0.9;
+    margin-bottom: 4px;
+}
+
+#board-tools-widget .board-tools-pins {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+#board-tools-widget .board-tools-pins th,
+#board-tools-widget .board-tools-pins td {
+    text-align: left;
+    padding: 2px 6px;
+    border-bottom: 1px solid var(--theia-panel-border);
+}
+
+#board-tools-widget .board-tools-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 12px 0;
+}
+
+#board-tools-widget .board-tools-status {
+    font-family: var(--theia-code-font-family);
+    font-size: 12px;
+    border-top: 1px solid var(--theia-panel-border);
+    padding-top: 6px;
+}
+
+#board-tools-widget .board-tools-status-line {
+    white-space: pre-wrap;
+    word-break: break-word;
+}

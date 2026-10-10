@@ -78,7 +78,21 @@ export interface AdcDef {
     pin: string;
 }
 
-export type PeripheralDef = UartDef | I2cDef | SpiDef | PwmDef | AdcDef;
+export interface PioDef {
+    kind: 'pio';
+    /** Controller id: "pio0" or "pio1" (RP2040 only). */
+    id: string;
+    /** State machine within the PIO block, 0..3. */
+    sm: number;
+    /** Pin label driven by the state machine. */
+    pin: string;
+    /** Informational program name, e.g. "ws2812". */
+    program?: string;
+    /** State machine clock in Hz (informational). */
+    freqHz?: number;
+}
+
+export type PeripheralDef = UartDef | I2cDef | SpiDef | PwmDef | AdcDef | PioDef;
 
 export interface LedDef {
     /** Macro name to emit, e.g. "LED_BUILTIN". */
@@ -96,6 +110,8 @@ export interface BoardModel {
     displayName?: string;
     mcu: Mcu;
     clock?: {
+        /** Crystal (XOSC) frequency in Hz. */
+        xoscHz?: number;
         /** System clock in Hz. */
         sysHz?: number;
     };

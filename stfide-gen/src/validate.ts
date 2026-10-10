@@ -8,8 +8,20 @@ export interface Issue {
 }
 
 const IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
-const KNOWN_SIGNAL_PREFIXES = ['gpio_', 'uart', 'i2c', 'spi', 'pwm', 'adc'];
-const PERIPHERAL_KINDS = ['uart', 'i2c', 'spi', 'pwm', 'adc'] as const;
+const KNOWN_SIGNAL_PREFIXES = ['gpio_', 'uart', 'i2c', 'spi', 'pwm', 'adc', 'pio'];
+const PERIPHERAL_KINDS = ['uart', 'i2c', 'spi', 'pwm', 'adc', 'pio'] as const;
+
+/** Default crystal frequencies per MCU (warn when a board differs). */
+const DEFAULT_XOSC_HZ: Partial<Record<Mcu, number>> = {
+    rp2040: 12000000,
+    esp32s3: 40000000
+};
+
+/** Highest "stock" system clock per MCU (warn above it). */
+const MAX_STOCK_SYS_HZ: Partial<Record<Mcu, number>> = {
+    rp2040: 133000000,
+    esp32s3: 240000000
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -46,6 +58,41 @@ export function validateBoard(input: unknown): Issue[] {
 
     const maxPin = mcu === 'rp2040' ? 29 : mcu === 'esp32s3' ? 48 : 127;
     const knownLabels = new Set<string>();
+
+    const clock = input.clock;
+    if (clock !== undefined) {
+        if (!isRecord(clock)) {
+            error('clock must be an object');
+        } else {
+            const { xoscHz, sysHz } = clock;
+            if (xoscHz !== undefined) {
+                if (!isInteger(xoscHz) || xoscHz <= 0) {
+                    error('clock.xoscHz must be a positive integer');
+                } else {
+                    const defaultXosc = mcu !== undefined ? DEFAULT_XOSC_HZ[mcu] : undefined;
+                    if (defaultXosc !== undefined && xoscHz !== defaultXosc) {
+                        warn(
+                            `clock.xoscHz ${xoscHz} differs from the ${mcu} default (${defaultXosc}); ` +
+                            'the generated code/comments will call out the required crystal/SDK configuration'
+                        );
+                    }
+                }
+            }
+            if (sysHz !== undefined) {
+                if (!isInteger(sysHz) || sysHz <= 0) {
+                    error('clock.sysHz must be a positive integer');
+                } else {
+                    const maxStock = mcu !== undefined ? MAX_STOCK_SYS_HZ[mcu] : undefined;
+                    if (maxStock !== undefined && sysHz > maxStock) {
+                        warn(
+                            `clock.sysHz ${sysHz} exceeds the ${mcu} stock clock (${maxStock}); ` +
+                            'this is an overclock / unsupported configuration'
+                        );
+                    }
+                }
+            }
+        }
+    }
 
     const pins = input.pins;
     if (!Array.isArray(pins) || pins.length === 0) {
@@ -201,6 +248,25 @@ export function validateBoard(input: unknown): Issue[] {
                             requireFrequency(`${at}.freqHz`, entry.freqHz);
                         }
                         break;
+                    case 'pio': {
+                        if (mcu !== undefined && mcu !== 'rp2040') {
+                            error(`${at}: pio peripherals require mcu "rp2040" (board mcu is "${mcu}")`);
+                        }
+                        if (typeof id === 'string' && id !== 'pio0' && id !== 'pio1') {
+                            error(`${at}.id must be "pio0" or "pio1"`);
+                        }
+                        const sm = entry.sm;
+                        if (!isInteger(sm) || sm < 0 || sm > 3) {
+                            error(`${at}.sm must be an integer in 0..3`);
+                        }
+                        requireLabelRef(at, 'pin', entry.pin, true, owner);
+                        const program = entry.program;
+                        if (program !== undefined && (typeof program !== 'string' || program.length === 0)) {
+                            error(`${at}.program must be a non-empty string`);
+                        }
+                        requireFrequency(`${at}.freqHz`, entry.freqHz);
+                        break;
+                    }
                 }
             });
         }

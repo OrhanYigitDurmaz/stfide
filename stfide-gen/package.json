@@ -3,6 +3,8 @@
   "version": "0.0.0",
   "private": true,
   "description": "Board configuration code generator for custom RP2040 / ESP32-S3 cards",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
   "bin": {
     "stfide-gen": "./lib/cli.js"
   },

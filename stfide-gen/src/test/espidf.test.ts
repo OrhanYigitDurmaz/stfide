@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import * as assert from 'node:assert/strict';
 import * as path from 'path';
 import { loadBoard } from '../load';
+import { mergeUserCode } from '../merge';
 import { espidfEmitter } from '../emitters/espidf';
 import { BoardModel } from '../model';
 
@@ -58,8 +59,11 @@ test('real oc1-esp32s3 board: expected paths, determinism and key statements', (
     assert.ok(initC.includes('.master.clk_speed = 400000'));
     assert.ok(initC.includes('spi_bus_initialize(SPI2_HOST, &buscfg, SPI_DMA_CH_AUTO)'));
     assert.ok(initC.includes('// System clock: set CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ via sdkconfig (target 240 MHz)'));
+    assert.ok(initC.includes('// Crystal: 40 MHz -> set CONFIG_XTAL_FREQ_40 in sdkconfig'));
     assert.ok(initC.includes('// PWM on PIN_BUZZER (pwm0): use the LEDC driver (ledc_timer_config/ledc_channel_config)'));
     assert.ok(initC.includes('// ADC on PIN_AIN0 (adc0): use the One-Shot ADC driver (adc_oneshot_new_unit)'));
+    assert.ok(initC.includes('/* USER CODE BEGIN includes */'));
+    assert.ok(initC.includes('    /* USER CODE BEGIN board_init */'));
 });
 
 const SMALL_BOARD: BoardModel = {
@@ -101,6 +105,9 @@ test('small fixture: board_init.c and blink example golden files', () => {
         '#include "driver/uart.h"',
         '#include "esp_err.h"',
         '',
+        '/* USER CODE BEGIN includes */',
+        '/* USER CODE END includes */',
+        '',
         'void board_init(void) {',
         '    // ESP32-S3 routes peripheral signals to pins via the GPIO matrix; any pin can take any signal.',
         '',
@@ -124,6 +131,9 @@ test('small fixture: board_init.c and blink example golden files', () => {
         '    ESP_ERROR_CHECK(uart_param_config(UART_NUM_1, &uart1_config));',
         '    ESP_ERROR_CHECK(uart_set_pin(UART_NUM_1, PIN_TX, PIN_RX, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));',
         '    ESP_ERROR_CHECK(uart_driver_install(UART_NUM_1, 256, 256, 0, NULL, 0));',
+        '',
+        '    /* USER CODE BEGIN board_init */',
+        '    /* USER CODE END board_init */',
         '}',
         ''
     ].join('\n');
@@ -253,4 +263,41 @@ test('rp2040 board throws (unsupported mcu)', () => {
         pins: [{ pin: 0, label: 'X', signal: 'gpio_out' }]
     };
     assert.throws(() => emit(board), /does not support mcu "rp2040"/);
+});
+
+test('crystal comment: integer MHz uses CONFIG_XTAL_FREQ_<MHz>, otherwise a generic Hz form', () => {
+    const integer = emit({ ...SMALL_BOARD, clock: { xoscHz: 40000000, sysHz: 240000000 } });
+    const integerInit = integer.find(file => file.path === 'board_init.c')!.content;
+    assert.ok(integerInit.includes('    // Crystal: 40 MHz -> set CONFIG_XTAL_FREQ_40 in sdkconfig'));
+    assert.ok(
+        integerInit.includes(
+            '    // System clock: set CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ via sdkconfig (target 240 MHz)'
+        )
+    );
+
+    const fractional = emit({ ...SMALL_BOARD, clock: { xoscHz: 12345678 } });
+    const fractionalInit = fractional.find(file => file.path === 'board_init.c')!.content;
+    assert.ok(
+        fractionalInit.includes(
+            '    // Crystal: 12345678 Hz -> set the matching CONFIG_XTAL_FREQ_* value in sdkconfig'
+        )
+    );
+    assert.ok(!fractionalInit.includes('CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ'));
+});
+
+test('regeneration merge keeps user code in board_init.c', () => {
+    const first = emit(SMALL_BOARD, 'small.board.json').find(file => file.path === 'board_init.c')!.content;
+    const edited = first
+        .replace(
+            '/* USER CODE BEGIN includes */\n/* USER CODE END includes */',
+            '/* USER CODE BEGIN includes */\n#include "my_extra.h"\n/* USER CODE END includes */'
+        )
+        .replace(
+            '    /* USER CODE BEGIN board_init */\n    /* USER CODE END board_init */',
+            '    /* USER CODE BEGIN board_init */\n    app_clock_setup();\n    /* USER CODE END board_init */'
+        );
+    const regenerated = mergeUserCode(first, edited);
+    assert.ok(regenerated.includes('#include "my_extra.h"'));
+    assert.ok(regenerated.includes('    app_clock_setup();'));
+    assert.ok(regenerated.includes('ESP_ERROR_CHECK(uart_set_pin(UART_NUM_1'));
 });

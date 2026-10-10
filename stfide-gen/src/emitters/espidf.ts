@@ -5,7 +5,9 @@ import {
     peripheralsOfKind,
     pinMacro,
     requireMcu,
-    sortedPins
+    sortedPins,
+    userCodeBegin,
+    userCodeEnd
 } from '../util';
 import { EmitContext, Emitter, GeneratedFile } from './emitter';
 
@@ -302,6 +304,15 @@ function emitBoardInitC(board: BoardModel, sourcePath: string): GeneratedFile {
         const mhz = Math.round(board.clock.sysHz / 1000000);
         top.push(`    // System clock: set CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ via sdkconfig (target ${mhz} MHz)`);
     }
+    if (board.clock?.xoscHz !== undefined) {
+        const xoscHz = board.clock.xoscHz;
+        const mhz = xoscHz / 1000000;
+        if (Number.isInteger(mhz)) {
+            top.push(`    // Crystal: ${mhz} MHz -> set CONFIG_XTAL_FREQ_${mhz} in sdkconfig`);
+        } else {
+            top.push(`    // Crystal: ${xoscHz} Hz -> set the matching CONFIG_XTAL_FREQ_* value in sdkconfig`);
+        }
+    }
     blocks.push(top);
 
     if (gpioPins.length > 0 || ledConfigs.length > 0) {
@@ -376,11 +387,19 @@ function emitBoardInitC(board: BoardModel, sourcePath: string): GeneratedFile {
         }
         bodyLines.push(...block);
     }
+    if (bodyLines.length > 0) {
+        bodyLines.push('');
+    }
+    bodyLines.push(userCodeBegin('board_init', '    '));
+    bodyLines.push(userCodeEnd('board_init', '    '));
 
     const lines: string[] = [
         banner(TARGET, sourcePath),
         '',
         ...includes,
+        '',
+        userCodeBegin('includes'),
+        userCodeEnd('includes'),
         '',
         'void board_init(void) {',
         ...bodyLines,

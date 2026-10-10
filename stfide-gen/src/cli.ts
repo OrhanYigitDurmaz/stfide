@@ -2,6 +2,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { loadBoard } from './load';
+import { mergeUserCode } from './merge';
 import { allEmitters, emitterById } from './registry';
 import { filesSorted } from './util';
 
@@ -11,11 +12,12 @@ const USAGE = [
     'Usage:',
     '  stfide-gen targets',
     '  stfide-gen validate <board.json>',
-    '  stfide-gen generate <board.json> --target <id> [--target <id> ...] [--out <dir>]',
+    '  stfide-gen generate <board.json> --target <id> [--target <id> ...] [--out <dir>] [--no-merge]',
     '',
     'Options:',
     '  --target <id>   emitter to run (see "stfide-gen targets"); may be repeated',
     '  --out <dir>     output root directory (default: "generated")',
+    '  --no-merge      overwrite existing files instead of merging USER CODE blocks',
     '  --help          show this help'
 ].join('\n');
 
@@ -83,10 +85,33 @@ function runValidate(positional: string[]): number {
     }
 }
 
+/**
+ * True when the existing text contains at least one of the USER CODE sections
+ * that the freshly generated text emits, or when the generated text has no
+ * sections at all (nothing could be merged, so no warning is useful).
+ */
+function hasGeneratedUserSection(existing: string, generated: string): boolean {
+    const names = new Set<string>();
+    const pattern = /\/\* USER CODE BEGIN ([A-Za-z0-9_]+) \*\//g;
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(generated)) !== null) {
+        names.add(match[1]);
+    }
+    if (names.size === 0) {
+        return true;
+    }
+    for (const name of names) {
+        if (existing.includes(`/* USER CODE BEGIN ${name} */`)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 function runGenerate(positional: string[], options: Map<string, string[]>): number {
     const boardPath = positional[0];
     if (positional.length !== 1 || !boardPath) {
-        console.error('usage: stfide-gen generate <board.json> --target <id> [--out <dir>]');
+        console.error('usage: stfide-gen generate <board.json> --target <id> [--out <dir>] [--no-merge]');
         return 1;
     }
     const targets = (options.get('target') ?? []).filter(target => target.length > 0);
@@ -95,6 +120,7 @@ function runGenerate(positional: string[], options: Map<string, string[]>): numb
         return 1;
     }
     const outRoot = (options.get('out')?.[0]) || 'generated';
+    const noMerge = options.has('no-merge');
 
     let loaded;
     try {
@@ -123,14 +149,28 @@ function runGenerate(positional: string[], options: Map<string, string[]>): numb
         try {
             const files = filesSorted(emitter.emit({ board: loaded.board, sourcePath: boardPath }));
             const outDir = path.join(outRoot, targetId);
+            const written: { destination: string; action: 'wrote' | 'merged' }[] = [];
             for (const file of files) {
                 const destination = path.join(outDir, file.path);
                 fs.mkdirSync(path.dirname(destination), { recursive: true });
-                fs.writeFileSync(destination, file.content);
+                let content = file.content;
+                let action: 'wrote' | 'merged' = 'wrote';
+                if (!noMerge && fs.existsSync(destination)) {
+                    const existingContent = fs.readFileSync(destination, 'utf-8');
+                    content = mergeUserCode(file.content, existingContent);
+                    action = 'merged';
+                    if (!hasGeneratedUserSection(existingContent, file.content)) {
+                        console.warn(
+                            `warning: ${destination} has no USER CODE markers; existing content was replaced`
+                        );
+                    }
+                }
+                fs.writeFileSync(destination, content);
+                written.push({ destination, action });
             }
             console.log(`generated ${files.length} file(s) for target "${targetId}" in ${outDir}:`);
-            for (const file of files) {
-                console.log(`  ${path.join(outDir, file.path)}`);
+            for (const entry of written) {
+                console.log(`  ${entry.action} ${entry.destination}`);
             }
         } catch (error) {
             console.error(`error: target "${targetId}": ${(error as Error).message}`);

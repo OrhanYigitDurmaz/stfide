@@ -6,7 +6,9 @@ import {
     pinMacro,
     requireMcu,
     requirePinNumber,
-    sortedPins
+    sortedPins,
+    userCodeBegin,
+    userCodeEnd
 } from '../util';
 import { EmitContext, Emitter, GeneratedFile } from './emitter';
 
@@ -193,6 +195,37 @@ function pwmBody(board: BoardModel): string[] {
     return lines;
 }
 
+function pioBody(board: BoardModel): string[] {
+    const lines: string[] = [];
+    for (const pio of peripheralsOfKind(board, 'pio')) {
+        requirePinNumber(board, pio.pin);
+        lines.push(
+            `// PIO on ${pinMacro(pio.pin)} (${pio.id}): not configurable from an Arduino sketch; ` +
+            'program the state machine in your sketch'
+        );
+    }
+    return lines;
+}
+
+/** Clock notes: an Arduino sketch cannot change the core clock on ESP32-S3. */
+function clockBody(board: BoardModel): string[] {
+    const sysHz = board.clock?.sysHz;
+    if (sysHz === undefined) {
+        return [];
+    }
+    const mhz = sysHz / 1000000;
+    if (board.mcu === 'rp2040') {
+        if (sysHz === 133000000) {
+            return [];
+        }
+        return [
+            `// NOTE: target system clock ${mhz} MHz; call set_sys_clock_khz() after boardInit() ` +
+            'if your core does not already do so.'
+        ];
+    }
+    return [`// NOTE: CPU frequency (${mhz} MHz) is configured via the board definition / sdkconfig.`];
+}
+
 function adcBody(board: BoardModel): string[] {
     const lines: string[] = [];
     for (const adc of peripheralsOfKind(board, 'adc')) {
@@ -220,10 +253,12 @@ interface BodySection {
 /** Indented boardInit() body: one commented section per peripheral family. */
 function boardInitBody(board: BoardModel): string[] {
     const sections: BodySection[] = [
+        { title: 'Clock', lines: clockBody(board) },
         { title: 'GPIO', lines: gpioBody(board) },
         { title: 'UART', lines: uartBody(board) },
         { title: 'I2C', lines: i2cBody(board) },
         { title: 'SPI', lines: spiBody(board) },
+        { title: 'PIO', lines: pioBody(board) },
         { title: 'PWM', lines: pwmBody(board) },
         { title: 'ADC', lines: adcBody(board) },
         { title: 'LEDs', lines: ledBody(board) }
@@ -246,12 +281,21 @@ function boardInitBody(board: BoardModel): string[] {
 }
 
 function boardInitSource(board: BoardModel, sourcePath: string): string {
+    const body = boardInitBody(board);
+    if (body.length > 0) {
+        body.push('');
+    }
+    body.push(userCodeBegin('board_init', '    '));
+    body.push(userCodeEnd('board_init', '    '));
     return [
         banner(TARGET, sourcePath),
         '#include "board_config.h"',
         '',
+        userCodeBegin('includes'),
+        userCodeEnd('includes'),
+        '',
         'void boardInit() {',
-        ...boardInitBody(board),
+        ...body,
         '}',
         ''
     ].join('\n');

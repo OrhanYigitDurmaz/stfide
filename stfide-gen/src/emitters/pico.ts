@@ -1,4 +1,4 @@
-import { BoardModel, LedDef, PinDef } from '../model';
+import { BoardModel, LedDef, PeripheralDef, PinDef } from '../model';
 import {
     banner,
     findPinByLabel,
@@ -6,7 +6,9 @@ import {
     pinMacro,
     requireMcu,
     requirePinNumber,
-    sortedPins
+    sortedPins,
+    userCodeBegin,
+    userCodeEnd
 } from '../util';
 import { EmitContext, Emitter, GeneratedFile } from './emitter';
 
@@ -70,6 +72,10 @@ function validatePin(board: BoardModel, pin: PinDef): void {
     if (pin.signal === 'gpio_out' || pin.signal === 'gpio_in') {
         return;
     }
+    // PIO state machines can hijack any GPIO through the function mux.
+    if (pin.signal === 'pio0' || pin.signal === 'pio1') {
+        return;
+    }
     const allowed = RP2040_GPIO_FUNCTIONS[pin.pin];
     if (!allowed.includes(pin.signal)) {
         const tokens = [...allowed, 'gpio_out', 'gpio_in'].join(', ');
@@ -129,6 +135,9 @@ function pinConfigLines(pin: PinDef): string[] {
         family = 'I2C';
     } else if (pin.signal.startsWith('spi')) {
         family = 'SPI';
+    } else if (pin.signal === 'pio0' || pin.signal === 'pio1') {
+        // Exact token: GPIO_FUNC_PIO0 / GPIO_FUNC_PIO1.
+        family = pin.signal.toUpperCase();
     } else if (pin.signal.startsWith('pwm')) {
         family = 'PWM';
     } else {
@@ -151,41 +160,67 @@ function unsupportedId(board: BoardModel, kind: string, id: string, expected: st
     );
 }
 
-/** Peripheral initialization statements, in declaration order. */
+/**
+ * Fixed order of the peripheral init section: uart, i2c, spi, PIO, pwm
+ * comment, adc. Declaration order only matters within one kind.
+ */
+const PERIPHERAL_ORDER: readonly PeripheralDef['kind'][] = ['uart', 'i2c', 'spi', 'pio', 'pwm', 'adc'];
+
+/** Peripheral initialization statements, grouped by kind in a fixed order. */
 function peripheralLines(board: BoardModel): string[] {
     const lines: string[] = [];
-    for (const peripheral of board.peripherals ?? []) {
-        switch (peripheral.kind) {
-            case 'uart':
-                if (peripheral.id !== 'uart0' && peripheral.id !== 'uart1') {
-                    throw unsupportedId(board, 'uart', peripheral.id, 'uart0 or uart1');
+    for (const kind of PERIPHERAL_ORDER) {
+        for (const peripheral of peripheralsOfKind(board, kind)) {
+            switch (peripheral.kind) {
+                case 'uart':
+                    if (peripheral.id !== 'uart0' && peripheral.id !== 'uart1') {
+                        throw unsupportedId(board, 'uart', peripheral.id, 'uart0 or uart1');
+                    }
+                    lines.push(`uart_init(${peripheral.id}, ${peripheral.baud});`);
+                    break;
+                case 'i2c':
+                    if (peripheral.id !== 'i2c0' && peripheral.id !== 'i2c1') {
+                        throw unsupportedId(board, 'i2c', peripheral.id, 'i2c0 or i2c1');
+                    }
+                    lines.push(`i2c_init(${peripheral.id}, ${peripheral.freqHz ?? 100000});`);
+                    break;
+                case 'spi':
+                    if (peripheral.id !== 'spi0' && peripheral.id !== 'spi1') {
+                        throw unsupportedId(board, 'spi', peripheral.id, 'spi0 or spi1');
+                    }
+                    lines.push(`spi_init(${peripheral.id}, ${peripheral.freqHz ?? 1000000});`);
+                    break;
+                case 'pio': {
+                    if (peripheral.id !== 'pio0' && peripheral.id !== 'pio1') {
+                        throw unsupportedId(board, 'pio', peripheral.id, 'pio0 or pio1');
+                    }
+                    if (!Number.isInteger(peripheral.sm) || peripheral.sm < 0 || peripheral.sm > 3) {
+                        throw new Error(
+                            `board "${board.name}": pio "${peripheral.id}" state machine ${peripheral.sm} ` +
+                            'is out of range (0..3)'
+                        );
+                    }
+                    requirePinNumber(board, peripheral.pin);
+                    const program = peripheral.program !== undefined ? ` (program "${peripheral.program}")` : '';
+                    lines.push(
+                        `// PIO: ${peripheral.id} SM${peripheral.sm} drives ${pinMacro(peripheral.pin)}${program}; ` +
+                        'load/configure the program in the application (pin is already routed to PIO above)'
+                    );
+                    break;
                 }
-                lines.push(`uart_init(${peripheral.id}, ${peripheral.baud});`);
-                break;
-            case 'i2c':
-                if (peripheral.id !== 'i2c0' && peripheral.id !== 'i2c1') {
-                    throw unsupportedId(board, 'i2c', peripheral.id, 'i2c0 or i2c1');
+                case 'pwm': {
+                    requirePinNumber(board, peripheral.pin);
+                    const signal = findPinByLabel(board, peripheral.pin)?.signal ?? peripheral.id;
+                    lines.push(
+                        `// PWM slice for ${pinMacro(peripheral.pin)} (${signal}): configure with ` +
+                        'pwm_set_wrap()/pwm_set_chan_level() in the application'
+                    );
+                    break;
                 }
-                lines.push(`i2c_init(${peripheral.id}, ${peripheral.freqHz ?? 100000});`);
-                break;
-            case 'spi':
-                if (peripheral.id !== 'spi0' && peripheral.id !== 'spi1') {
-                    throw unsupportedId(board, 'spi', peripheral.id, 'spi0 or spi1');
-                }
-                lines.push(`spi_init(${peripheral.id}, ${peripheral.freqHz ?? 1000000});`);
-                break;
-            case 'pwm': {
-                requirePinNumber(board, peripheral.pin);
-                const signal = findPinByLabel(board, peripheral.pin)?.signal ?? peripheral.id;
-                lines.push(
-                    `// PWM slice for ${pinMacro(peripheral.pin)} (${signal}): configure with ` +
-                    'pwm_set_wrap()/pwm_set_chan_level() in the application'
-                );
-                break;
+                case 'adc':
+                    // adc_init() is emitted above when the board has any ADC usage.
+                    break;
             }
-            case 'adc':
-                // adc_init() is emitted above when the board has any ADC usage.
-                break;
         }
     }
     return lines;
@@ -260,10 +295,14 @@ function emitInitC(board: BoardModel, sourcePath: string, pins: PinDef[]): strin
     if (hasAdc) {
         lines.push('#include "hardware/adc.h"');
     }
+    lines.push('');
+    lines.push(userCodeBegin('includes'));
+    lines.push(userCodeEnd('includes'));
     lines.push('', 'void board_init(void) {');
 
     const sections: string[][] = [];
 
+    const clockLines: string[] = [];
     const sysHz = board.clock?.sysHz;
     if (sysHz !== undefined) {
         if (!Number.isInteger(sysHz) || sysHz <= 0 || sysHz % 1000 !== 0) {
@@ -272,7 +311,20 @@ function emitInitC(board: BoardModel, sourcePath: string, pins: PinDef[]): strin
                 '(kHz precision) for the pico target'
             );
         }
-        sections.push([`set_sys_clock_khz(${sysHz / 1000}, true);`]);
+        clockLines.push(`set_sys_clock_khz(${sysHz / 1000}, true);`);
+    }
+    const xoscHz = board.clock?.xoscHz;
+    if (xoscHz !== undefined && xoscHz !== 12000000) {
+        clockLines.push(
+            `// NOTE: crystal ${xoscHz} Hz differs from the pico-sdk default (12 MHz); ` +
+            'a board header override is required.'
+        );
+    }
+    if (sysHz !== undefined && sysHz > 133000000) {
+        clockLines.push(`// NOTE: ${sysHz / 1000} kHz exceeds the stock 133 MHz system clock (overclock).`);
+    }
+    if (clockLines.length > 0) {
+        sections.push(clockLines);
     }
 
     // All pins are initialized first; only then are alternative functions set.
@@ -302,6 +354,11 @@ function emitInitC(board: BoardModel, sourcePath: string, pins: PinDef[]): strin
     for (const bodyLine of body) {
         lines.push(bodyLine === '' ? '' : `    ${bodyLine}`);
     }
+    if (body.length > 0) {
+        lines.push('');
+    }
+    lines.push(userCodeBegin('board_init', '    '));
+    lines.push(userCodeEnd('board_init', '    '));
     lines.push('}');
     return lines.join('\n') + '\n';
 }

@@ -16,6 +16,7 @@
     "@theia/process": "1.76.0",
     "@theia/terminal": "1.76.0",
     "@theia/workspace": "1.76.0",
+    "board-tools": "0.0.0",
     "hello-world": "0.0.0"
   },
   "devDependencies": {

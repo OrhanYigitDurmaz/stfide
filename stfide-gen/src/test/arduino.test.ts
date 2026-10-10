@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import * as assert from 'node:assert/strict';
 import * as path from 'path';
 import { loadBoard } from '../load';
+import { mergeUserCode } from '../merge';
 import { arduinoEmitter } from '../emitters/arduino';
 import { GeneratedFile } from '../emitters/emitter';
 import { BoardModel, PeripheralDef } from '../model';
@@ -73,7 +74,7 @@ test('oc1-rp2040: expected files and deterministic output', () => {
 
     const init = fileByPath(files, 'board_init.cpp').content;
     let previousIndex = -1;
-    for (const header of ['    // GPIO', '    // UART', '    // I2C', '    // SPI', '    // PWM', '    // ADC', '    // LEDs']) {
+    for (const header of ['    // GPIO', '    // UART', '    // I2C', '    // SPI', '    // PIO', '    // PWM', '    // ADC', '    // LEDs']) {
         const index = init.indexOf(header);
         assert.ok(index > previousIndex, `expected indented section header ${JSON.stringify(header)}`);
         previousIndex = index;
@@ -82,9 +83,22 @@ test('oc1-rp2040: expected files and deterministic output', () => {
     assert.ok(init.includes('Serial1.begin(115200);'));
     assert.ok(init.includes('Wire.setClock(400000);'));
     assert.ok(init.includes('SPI.setTX(PIN_SPI_MOSI);'));
+    assert.ok(
+        init.includes(
+            '// PIO on PIN_LED_STRIP (pio0): not configurable from an Arduino sketch; ' +
+            'program the state machine in your sketch'
+        )
+    );
     assert.ok(init.includes('// PWM output on PIN_BUZZER (pwm2_b): use analogWrite(PIN_BUZZER, duty)'));
     assert.ok(init.includes('// ADC input on PIN_AIN0 (adc0): use analogRead(PIN_AIN0)'));
     assert.ok(init.includes('digitalWrite(LED_BUILTIN, LED_BUILTIN_ACTIVE_LOW ? HIGH : LOW);'));
+
+    // USER CODE markers: includes after the standard includes, board_init at
+    // the end of the boardInit() body.
+    assert.ok(init.includes('#include "board_config.h"\n\n/* USER CODE BEGIN includes */\n/* USER CODE END includes */\n'));
+    assert.ok(init.includes('\n    /* USER CODE BEGIN board_init */\n    /* USER CODE END board_init */\n}'));
+    // Stock 133 MHz clock: no clock note for the real board.
+    assert.ok(!init.includes('target system clock'));
 
     const variant = fileByPath(files, 'variants/oc1-rp2040/pins_arduino.h').content;
     assert.ok(variant.includes('#pragma once'));
@@ -120,6 +134,13 @@ test('oc1-esp32s3: expected files and deterministic output', () => {
     const init = fileByPath(files, 'board_init.cpp').content;
     assert.ok(init.includes('Serial.begin(115200, SERIAL_8N1, PIN_DEBUG_RX, PIN_DEBUG_TX);'));
     assert.ok(init.includes('SPI.begin(PIN_SPI_SCK, PIN_SPI_MISO, PIN_SPI_MOSI, -1);'));
+    assert.ok(
+        init.includes(
+            '// NOTE: CPU frequency (240 MHz) is configured via the board definition / sdkconfig.'
+        )
+    );
+    // No PIO on this board.
+    assert.ok(!init.includes('// PIO'));
 
     assert.ok(fileByPath(files, 'variants/oc1-esp32s3/pins_arduino.h').content.includes('#pragma once'));
 });
@@ -213,4 +234,62 @@ test('board without leds emits no blink example', () => {
 
     const init = fileByPath(files, 'board_init.cpp').content;
     assert.ok(!init.includes('LED_BUILTIN'));
+});
+
+// ---------------------------------------------------------------------------
+// Clock notes
+// ---------------------------------------------------------------------------
+
+function initOf(board: BoardModel): string {
+    return fileByPath(arduinoEmitter.emit({ board, sourcePath: 'clock.board.json' }), 'board_init.cpp').content;
+}
+
+test('rp2040: non-stock system clock emits a set_sys_clock_khz note', () => {
+    const board = cloneBoard(fixtureBoard);
+    board.clock = { sysHz: 150000000 };
+    const init = initOf(board);
+    assert.ok(
+        init.includes(
+            '// NOTE: target system clock 150 MHz; call set_sys_clock_khz() after boardInit() ' +
+            'if your core does not already do so.'
+        )
+    );
+    assert.ok(init.includes('    // Clock\n'));
+
+    board.clock = { sysHz: 133000000 };
+    const stockInit = initOf(board);
+    assert.ok(!stockInit.includes('// NOTE:'));
+    assert.ok(!stockInit.includes('    // Clock'));
+});
+
+test('esp32s3: system clock emits the sdkconfig note', () => {
+    const loaded = loadBoard(ESP32S3_BOARD);
+    const board = cloneBoard(loaded.board);
+    board.clock = { sysHz: 160000000 };
+    assert.ok(
+        initOf(board).includes(
+            '// NOTE: CPU frequency (160 MHz) is configured via the board definition / sdkconfig.'
+        )
+    );
+});
+
+// ---------------------------------------------------------------------------
+// USER CODE merge
+// ---------------------------------------------------------------------------
+
+test('regeneration merge keeps user code in board_init.cpp', () => {
+    const first = initOf(cloneBoard(fixtureBoard));
+    const edited = first
+        .replace(
+            '/* USER CODE BEGIN includes */\n/* USER CODE END includes */',
+            '/* USER CODE BEGIN includes */\n#include "user_extra.h"\n/* USER CODE END includes */'
+        )
+        .replace(
+            '    /* USER CODE BEGIN board_init */\n    /* USER CODE END board_init */',
+            '    /* USER CODE BEGIN board_init */\n    startUserTask();\n    /* USER CODE END board_init */'
+        );
+    const regenerated = mergeUserCode(first, edited);
+    assert.ok(regenerated.includes('#include "user_extra.h"'));
+    assert.ok(regenerated.includes('    startUserTask();'));
+    assert.ok(regenerated.includes('Serial1.begin(9600);'));
 });

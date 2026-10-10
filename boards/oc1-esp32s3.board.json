@@ -4,6 +4,7 @@
     "displayName": "OC1 ESP32-S3 Card",
     "mcu": "esp32s3",
     "clock": {
+        "xoscHz": 40000000,
         "sysHz": 240000000
     },
     "flash": {

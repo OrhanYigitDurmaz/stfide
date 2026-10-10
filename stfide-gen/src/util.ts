@@ -83,3 +83,16 @@ export function requireMcu(board: BoardModel, supported: readonly string[], emit
         );
     }
 }
+
+/** USER CODE sections emitted by the emitters (see merge.ts for the merge rules). */
+export type UserSection = 'includes' | 'board_init';
+
+/** BEGIN marker line for a USER CODE section, optionally indented. */
+export function userCodeBegin(section: UserSection, indent = ''): string {
+    return `${indent}/* USER CODE BEGIN ${section} */`;
+}
+
+/** END marker line for a USER CODE section, optionally indented. */
+export function userCodeEnd(section: UserSection, indent = ''): string {
+    return `${indent}/* USER CODE END ${section} */`;
+}
