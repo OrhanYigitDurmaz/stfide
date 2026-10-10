@@ -19,6 +19,7 @@
   },
   "workspaces": [
     "hello-world",
+    "stfide-gen",
     "browser-app",
     "electron-app"
   ],

@@ -22,9 +22,35 @@ This is an npm-workspaces monorepo orchestrated with lerna:
 | `browser-app/` | The Theia application running in the browser (port 3000) |
 | `electron-app/` | The Theia application running as a desktop app (Electron) |
 | `hello-world/` | Example Theia extension: adds the **Say Hello** command (F1 → "Say Hello" → "Hello World!" notification) |
+| `stfide-gen/` | Board configuration **code generator** (CLI + library) for custom RP2040 / ESP32-S3 cards |
+| `boards/` | Board definition files — the source of truth for each custom card |
 
 `browser-app` and `electron-app` each declare the `@theia/*` packages (plus `hello-world` in this repo)
 that compose the product. Adding/removing features is done by adding/removing `@theia/*` packages there.
+
+## Board tooling (`stfide-gen`)
+
+Each custom card is described by one `boards/*.board.json` file (pins, signals, peripherals, LEDs,
+clock). `stfide-gen` turns that into ready-to-compile initialization code:
+
+| Target id | Stack | Boards |
+|---|---|---|
+| `arduino` | arduino-pico / arduino-esp32 sketch (`board_config.h`, `board_init.cpp`, `pins_arduino.h` variant, blink example) | RP2040, ESP32-S3 |
+| `pico` | Raspberry Pi Pico SDK (`board_pins.h`, `board_init.c`) | RP2040 |
+| `espidf` | ESP-IDF (`board_pins.h`, `board_init.c`) | ESP32-S3 |
+
+```bash
+cd stfide-gen && npm install && npm run build
+
+node lib/cli.js targets                                            # list targets
+node lib/cli.js validate ../boards/oc1-rp2040.board.json           # validate a board file
+node lib/cli.js generate ../boards/oc1-rp2040.board.json \
+    --target pico --target arduino --out ../generated              # generate code
+```
+
+Generated output is deterministic (same board file → byte-identical code), so it can be committed
+and reviewed in diffs. The board file schema and emitter development notes live in
+[`stfide-gen/README.md`](stfide-gen/README.md).
 
 ## Current state
 

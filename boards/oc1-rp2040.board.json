@@ -1,0 +1,37 @@
+{
+    "version": 1,
+    "name": "oc1-rp2040",
+    "displayName": "OC1 RP2040 Card",
+    "mcu": "rp2040",
+    "clock": {
+        "sysHz": 133000000
+    },
+    "flash": {
+        "method": "uf2",
+        "sizeKB": 2048
+    },
+    "pins": [
+        { "pin": 0, "label": "DEBUG_TX", "signal": "uart0_tx" },
+        { "pin": 1, "label": "DEBUG_RX", "signal": "uart0_rx" },
+        { "pin": 4, "label": "I2C_SDA", "signal": "i2c0_sda", "pull": "up" },
+        { "pin": 5, "label": "I2C_SCL", "signal": "i2c0_scl", "pull": "up" },
+        { "pin": 16, "label": "SPI_MISO", "signal": "spi0_rx" },
+        { "pin": 17, "label": "SPI_CS", "signal": "gpio_out", "initial": "high" },
+        { "pin": 18, "label": "SPI_SCK", "signal": "spi0_sck" },
+        { "pin": 19, "label": "SPI_MOSI", "signal": "spi0_tx" },
+        { "pin": 21, "label": "BUZZER", "signal": "pwm2_b" },
+        { "pin": 24, "label": "VBUS_SENSE", "signal": "gpio_in" },
+        { "pin": 25, "label": "STATUS_LED", "signal": "gpio_out", "initial": "low" },
+        { "pin": 26, "label": "AIN0", "signal": "adc0" }
+    ],
+    "peripherals": [
+        { "kind": "uart", "id": "uart0", "baud": 115200, "tx": "DEBUG_TX", "rx": "DEBUG_RX" },
+        { "kind": "i2c", "id": "i2c0", "sda": "I2C_SDA", "scl": "I2C_SCL", "freqHz": 400000 },
+        { "kind": "spi", "id": "spi0", "sck": "SPI_SCK", "mosi": "SPI_MOSI", "miso": "SPI_MISO", "freqHz": 1000000 },
+        { "kind": "pwm", "id": "pwm2_b", "pin": "BUZZER", "freqHz": 2000 },
+        { "kind": "adc", "id": "adc0", "pin": "AIN0" }
+    ],
+    "leds": [
+        { "name": "LED_BUILTIN", "label": "STATUS_LED", "activeLow": false }
+    ]
+}
