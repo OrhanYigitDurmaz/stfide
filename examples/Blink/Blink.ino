@@ -1,5 +1,4 @@
 // Blinks the on-board LED once per second.
-#include "stfkart_pins.h"
 
 void setup() {
   stfkartBegin();  // sets up the pins from the Pins tab

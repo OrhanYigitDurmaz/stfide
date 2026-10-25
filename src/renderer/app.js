@@ -230,7 +230,9 @@ async function newTab() {
   });
   if (!name) return;
   const file = normalizeTabName(name);
-  const content = file.endsWith('.h') ? '#pragma once\n\n#include "stfkart_pins.h"\n\n' : '';
+  // Only the main sketch gets the pin header automatically; other C/C++ files include it themselves.
+  const content = file.endsWith('.h') ? '#pragma once\n\n#include "stfkart_pins.h"\n\n'
+    : file.endsWith('.ino') ? '' : '#include "stfkart_pins.h"\n\n';
   state.files.splice(state.files.findIndex((f) => f.generated), 0, { name: file, generated: false, dirty: true });
   editor.addFile({ name: file, content });
   showFile(file);

@@ -1,5 +1,4 @@
 // Fades an LED on D9 in and out with PWM.
-#include "stfkart_pins.h"
 
 int brightness = 0;
 int step = 5;

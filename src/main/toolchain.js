@@ -15,6 +15,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { BOARD } from '../common/board.js';
+import { HEADER_FILE } from '../common/pins.js';
 
 const EXE = process.platform === 'win32' ? 'arduino-cli.exe' : 'arduino-cli';
 
@@ -77,25 +78,30 @@ export class Toolchain {
     return this.run(['core', 'install', 'arduino:avr'], { onOutput, track: true });
   }
 
+  // Builds a staged copy of the sketch whose main .ino starts with
+  // #include "stfkart_pins.h", so the user's code doesn't need that line
+  // (like Arduino.h). Paths in the output are mapped back to the real sketch.
   compile(sketchDir, { port, upload, onOutput }) {
     const hash = crypto.createHash('sha1').update(sketchDir).digest('hex').slice(0, 12);
+    const staged = stageSketch(sketchDir, path.join(this.buildRoot, hash, 'staged'));
     const args = [
       'compile',
       '--fqbn', BOARD.fqbn,
-      '--build-path', path.join(this.buildRoot, hash),
+      '--build-path', path.join(this.buildRoot, hash, 'build'),
       '--warnings', 'default',
     ];
     for (const p of this.extraProps) args.push('--build-property', p);
     if (upload) args.push('--upload', '--port', port);
-    args.push(sketchDir);
-    return this.run(args, { onOutput, track: true });
+    args.push(staged);
+    const mapText = (text) => text.split(staged).join(sketchDir);
+    return this.run(args, { onOutput, track: true, mapText });
   }
 
   cancel() {
     if (this.current) this.current.kill();
   }
 
-  run(args, { onOutput, track }) {
+  run(args, { onOutput, track, mapText = (t) => t }) {
     return new Promise((resolve) => {
       if (!this.cli) {
         resolve({ code: -1, stdout: '', stderr: 'arduino-cli not found' });
@@ -108,7 +114,7 @@ export class Toolchain {
       // Both streams in arrival order, as the user saw them.
       const chunks = [];
       const collect = (stream) => (d) => {
-        const text = String(d);
+        const text = mapText(String(d));
         if (stream === 'stdout') stdout += text;
         else stderr += text;
         chunks.push({ text, stream });
@@ -126,6 +132,47 @@ export class Toolchain {
       });
     });
   }
+}
+
+export const AUTO_INCLUDE = `#include "${HEADER_FILE}"`;
+
+// Mirrors the sketch folder into `dest`, writing only files that changed so
+// arduino-cli's incremental build keeps working, and prepends the pin header
+// include to the main .ino. `#line 1` keeps compiler line numbers matching
+// the user's file.
+export function stageSketch(sketchDir, stagingRoot) {
+  const name = path.basename(sketchDir);
+  const dest = path.join(stagingRoot, name);
+  const wanted = new Set();
+  const walk = (rel) => {
+    for (const entry of fs.readdirSync(path.join(sketchDir, rel), { withFileTypes: true })) {
+      if (entry.name.startsWith('.')) continue;
+      const r = path.join(rel, entry.name);
+      if (entry.isDirectory()) walk(r);
+      else if (entry.isFile()) {
+        wanted.add(r);
+        let content = fs.readFileSync(path.join(sketchDir, r));
+        if (r === `${name}.ino`) content = Buffer.from(`${AUTO_INCLUDE}\n#line 1\n${content}`);
+        const out = path.join(dest, r);
+        if (fs.existsSync(out) && fs.readFileSync(out).equals(content)) continue;
+        fs.mkdirSync(path.dirname(out), { recursive: true });
+        fs.writeFileSync(out, content);
+      }
+    }
+  };
+  walk('');
+  // Drop files the user deleted from the sketch.
+  const prune = (rel) => {
+    const dir = path.join(dest, rel);
+    if (!fs.existsSync(dir)) return;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const r = path.join(rel, entry.name);
+      if (entry.isDirectory()) prune(r);
+      else if (!wanted.has(r)) fs.rmSync(path.join(dest, r));
+    }
+  };
+  prune('');
+  return dest;
 }
 
 function findOnPath(exe) {

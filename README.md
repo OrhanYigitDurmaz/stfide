@@ -9,8 +9,6 @@ button, servo, potentiometer…), give it a name, and STFIDE writes the setup
 code for you. Your sketch stays plain Arduino code.
 
 ```cpp
-#include "stfkart_pins.h"
-
 void setup() {
   stfkartBegin();            // pinMode, Serial.begin, servo.attach… from the Pins tab
 }
@@ -47,6 +45,10 @@ Each sketch folder holds:
 | `MySketch.ino` (and any other tabs) | You |
 | `stfkart.pins.json` | The Pins tab |
 | `stfkart_pins.h`, `stfkart_pins.cpp` | Generated from the JSON every time you save |
+
+STFIDE adds `#include "stfkart_pins.h"` to the main sketch at build time (the
+way the Arduino IDE adds `Arduino.h`), so sketches don't need that line. Extra
+`.cpp`/`.h` tabs include it themselves; new tabs start with that line.
 
 Generated files are always rewritten in full. They don't get editor tabs; you
 can read them at the bottom of the Pins tab. There are no "USER CODE" markers to keep intact, and regenerating can never break your

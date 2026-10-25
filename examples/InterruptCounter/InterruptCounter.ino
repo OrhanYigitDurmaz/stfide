@@ -1,5 +1,4 @@
 // Counts button presses on D2 with an interrupt and prints the count.
-#include "stfkart_pins.h"
 
 volatile unsigned int presses = 0;  // changed inside the interrupt
 unsigned int shown = 0;

@@ -1,5 +1,4 @@
 // Plays a short tune on a buzzer connected to D8.
-#include "stfkart_pins.h"
 
 const int notes[] = { 262, 294, 330, 349, 392, 440, 494, 523 };  // C4..C5
 const int noteCount = sizeof(notes) / sizeof(notes[0]);

@@ -42,6 +42,18 @@ for (const ex of listExamples(path.join(root, 'examples'))) {
   });
 }
 
+test('pin names work without including stfkart_pins.h', { skip }, async () => {
+  const { createSketch } = await import('../src/main/sketch.js');
+  const sketch = createSketch(path.join(tmp, 'noinclude'));
+  const main = path.join(sketch.dir, sketch.main);
+  assert.doesNotMatch(fs.readFileSync(main, 'utf8'), /#include/);
+  fs.writeFileSync(main, fs.readFileSync(main, 'utf8').replace('void loop() {', 'void loop() {\n  digitalWrite(led, HIGH);'));
+  saveSketch(sketch.dir, { files: [], config: { pins: { D13: { role: 'led', name: 'led' } } } });
+  const r = await toolchain.compile(sketch.dir, {});
+  assert.equal(r.code, 0, r.stderr);
+  assert.doesNotMatch(r.stdout + r.stderr, /staged/);
+});
+
 test('a new sketch with no pins compiles', { skip }, async () => {
   const { createSketch } = await import('../src/main/sketch.js');
   const sketch = createSketch(path.join(tmp, 'book'));
@@ -58,5 +70,7 @@ test('a compile error is reported against the sketch file', { skip }, async () =
   assert.notEqual(r.code, 0);
   const d = parseDiagnostics(r.stdout + r.stderr).find((x) => x.severity === 'error');
   assert.equal(d.file, sketch.main);
-  assert.equal(d.line, 9);
+  // The include STFIDE adds at build time must not shift line numbers.
+  const lines = fs.readFileSync(main, 'utf8').split('\n');
+  assert.equal(d.line, lines.findIndex((l) => l.includes('digitalWrit(')) + 1);
 });

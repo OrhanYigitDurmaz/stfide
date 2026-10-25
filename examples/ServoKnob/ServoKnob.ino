@@ -1,5 +1,4 @@
 // Turns a servo on D9 to follow a potentiometer on A0.
-#include "stfkart_pins.h"
 
 void setup() {
   stfkartBegin();  // attaches the servo and moves it to 90°

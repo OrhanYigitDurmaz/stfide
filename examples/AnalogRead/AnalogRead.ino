@@ -1,5 +1,4 @@
 // Reads a potentiometer on A0 and prints the value to the Serial Monitor.
-#include "stfkart_pins.h"
 
 void setup() {
   stfkartBegin();  // also starts Serial at 9600 baud
