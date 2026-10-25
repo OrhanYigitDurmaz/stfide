@@ -27,11 +27,11 @@ export function parseDiagnostics(output) {
 const HINTS = [
   {
     re: /undefined reference to `(\w+)\(\)'/,
-    hint: (m) => `The function ${m[1]}() is missing. If it is an interrupt handler from the Pins tab, add "void ${m[1]}() { }" to your sketch.`,
+    hint: (m) => `The function ${m[1]}() is missing. If it is an interrupt handler from the Circuit tab, add "void ${m[1]}() { }" to your sketch.`,
   },
   {
     re: /'(\w+)' was not declared in this scope/,
-    hint: (m) => `"${m[1]}" is not defined. Check the spelling (upper and lower case matter), or give a pin that name on the Pins tab.`,
+    hint: (m) => `"${m[1]}" is not defined. Check the spelling (upper and lower case matter), or give a pin that name on the Circuit tab.`,
   },
   {
     re: /expected ';' before/,
@@ -43,7 +43,7 @@ const HINTS = [
   },
   {
     re: /stfkart_pins\.h: No such file or directory/,
-    hint: () => 'The pin file is missing. Open the Pins tab and save the sketch to create it.',
+    hint: () => 'The pin file is missing. Open the Circuit tab and save the sketch to create it.',
   },
   {
     re: /Sketch too big|text section exceeds available space/,

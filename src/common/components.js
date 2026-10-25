@@ -1,5 +1,5 @@
 // Components: ready-made parts (sensors, displays, relays…) that can be
-// added on the Pins tab. Each one claims pins, pulls in its library, and
+// added on the Circuit tab. Each one claims pins, pulls in its library, and
 // generates a named object so the user can write e.g. `distance.readCm()`.
 //
 // A component definition:
@@ -15,7 +15,7 @@
 //   declare(c)             extern declaration for the header
 //   define(c, pin)         definition for the .cpp; pin(key) gives the pin expression
 //   begin(c)               lines for stfkartBegin()
-//   usage(c)               snippets shown on the Pins tab and in autocomplete
+//   usage(c)               snippets shown on the Circuit tab and in autocomplete
 
 export const COMPONENTS = {
   ultrasonic: {

@@ -1,7 +1,7 @@
 // Blinks the on-board LED once per second.
 
 void setup() {
-  stfkartBegin();  // sets up the pins from the Pins tab
+  stfkartBegin();  // sets up the pins from the Circuit tab
 }
 
 void loop() {

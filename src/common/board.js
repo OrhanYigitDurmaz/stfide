@@ -50,3 +50,24 @@ export const HEADERS = {
   bottom: ['A0', 'A1', 'A2', 'A3', 'A4', 'A5'],
   power: ['IOREF', 'RESET', '3V3', '5V', 'GND', 'GND', 'VIN'],
 };
+
+// Drawing of the board on the circuit canvas, in canvas pixels
+// (1 mm = 3.78 px, the same scale as the Wokwi part drawings).
+// Pins are the header holes; signal pins use the ids above.
+const PITCH = 9.6;
+const row = (names, x0, y) => names.map((name, i) => [name, { x: Math.round((x0 + i * PITCH) * 10) / 10, y }]);
+
+export const BOARD_GEOMETRY = {
+  width: 259,
+  height: 201,
+  pins: Object.fromEntries([
+    ...row(['AREF', 'GND.1', 'D13', 'D12', 'D11', 'D10', 'D9', 'D8'], 88, 9),
+    ...row(['D7', 'D6', 'D5', 'D4', 'D3', 'D2', 'D1', 'D0'], 172, 9),
+    ...row(['IOREF', 'RESET', '3V3', '5V', 'GND.2', 'GND.3', 'VIN'], 96, 192),
+    ...row(['A0', 'A1', 'A2', 'A3', 'A4', 'A5'], 172.8, 192),
+  ]),
+};
+
+export function isSignalPin(name) {
+  return Boolean(PIN_BY_ID[name]);
+}

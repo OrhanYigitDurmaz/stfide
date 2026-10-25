@@ -1,13 +1,17 @@
-// The Pins tab: a drawing of the STFKart, plus an inspector for the
-// selected pin, the communication buses, problems and generated code.
+// The Circuit tab: a Wokwi-style drawing of the STFKart with parts wired to
+// it, a palette of parts, and an inspector for the selection, the
+// communication buses, problems and generated code.
 
-import { BOARD, HEADERS, PIN_BY_ID } from '../common/board.js';
+import { BOARD, PINS, PIN_BY_ID } from '../common/board.js';
 import {
-  BAUD_RATES, GENERATED_FILES, I2C_CLOCKS, INTERRUPT_MODES, addComponent, assignRole, freePinsFor, generate, handlerName,
-  missingHandlers, removeComponent, rolesForPin, usageFor, validate,
+  BAUD_RATES, GENERATED_FILES, I2C_CLOCKS, INTERRUPT_MODES, assignRole, generate, handlerName,
+  missingHandlers, resolve, rolesForPin, usageFor, validate,
 } from '../common/pins.js';
 import { COMPONENTS } from '../common/components.js';
+import { BOARD_PART, PARTS } from '../common/parts.js';
+import { deriveFromCircuit } from '../common/circuit.js';
 import { t } from '../common/i18n.js';
+import { CircuitCanvas, WIRE_COLORS } from './circuit-canvas.js';
 
 export const ROLE_COLORS = {
   led: '#e0a526',
@@ -21,18 +25,11 @@ export const ROLE_COLORS = {
   buzzer: '#c0a020',
 };
 
-export const COMPONENT_COLOR = '#17a2b8';
-
-const SVG = 'http://www.w3.org/2000/svg';
-const PIN = 32;
-const STEP = 38;
-
-function el(tag, attrs = {}, parent) {
-  const n = document.createElementNS(SVG, tag);
-  for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
-  parent?.appendChild(n);
-  return n;
-}
+const PALETTE = [
+  ['palette.basic', ['led', 'resistor', 'pushbutton', 'slideSwitch', 'potentiometer', 'buzzer']],
+  ['palette.sensors', ['photoresistor', 'pir', 'ultrasonic', 'dht22', 'ds18b20']],
+  ['palette.outputs', ['servo', 'relay', 'rgbLed', 'neopixelRing', 'lcd1602', 'lcd2004']],
+];
 
 function h(tag, attrs = {}, ...children) {
   const n = document.createElement(tag);
@@ -68,6 +65,10 @@ function capabilities(id) {
   return caps;
 }
 
+const endLabel = (circuit, end) => (end.part === BOARD_PART
+  ? end.pin.replace(/\.\d$/, '')
+  : `${circuit.parts.find((p) => p.id === end.part)?.name ?? '?'} ${end.pin}`);
+
 export class PinsView {
   constructor(root, { getConfig, setConfig, getSources, onInsertHandler }) {
     this.root = root;
@@ -75,149 +76,249 @@ export class PinsView {
     this.setConfig = setConfig;
     this.getSources = getSources;
     this.onInsertHandler = onInsertHandler;
-    this.selected = null;
-    this.pinNodes = new Map();
+    this.selection = null; // { kind: 'part' | 'wire' | 'board', id }
+    this.selectedPin = null; // a board pin being set up by hand
     this.openGenerated = new Set();
-    this.selectedComponent = null;
-    this.picking = false;
+    this.undoStack = [];
+    this.redoStack = [];
 
-    this.boardArea = h('div', { class: 'board-area' });
+    this.palette = h('aside', { class: 'palette' });
+    const stage = h('div', { class: 'stage' });
+    const canvasHost = h('div');
     this.inspector = h('aside', { class: 'inspector' });
-    root.append(this.boardArea, this.inspector);
-    this.drawBoard();
+    root.append(this.palette, stage, this.inspector);
+
+    this.canvas = new CircuitCanvas(canvasHost, {
+      getCircuit: () => this.getConfig().circuit,
+      setCircuit: (circuit, selection) => {
+        this.selection = selection;
+        this.commit({ ...this.getConfig(), circuit });
+      },
+      onSelect: (sel) => this.select(sel),
+      onUndo: () => this.undo(),
+      onRedo: () => this.redo(),
+    });
+    stage.append(canvasHost, h('div', { class: 'stage-tools' },
+      h('button', { class: 'icon-btn', title: t('circuit.zoomOut'), onclick: () => this.canvas.zoomBy(1 / 1.2) }, '−'),
+      h('button', { class: 'icon-btn', title: t('circuit.zoomIn'), onclick: () => this.canvas.zoomBy(1.2) }, '+'),
+      h('button', { class: 'icon-btn', title: t('circuit.fit'), onclick: () => this.canvas.fit() }, '⤢'),
+      h('button', { class: 'icon-btn', title: t('circuit.undo'), onclick: () => this.undo() }, '↶'),
+      h('button', { class: 'icon-btn', title: t('circuit.redo'), onclick: () => this.redo() }, '↷'),
+    ), h('div', { class: 'stage-hint' }, t('circuit.hint')));
+
+    this.drawPalette();
     this.render();
   }
 
-  drawBoard() {
-    this.boardArea.append(h('div', { class: 'hint' }, t('pins.hint')));
-    const svg = el('svg', { class: 'board-svg', viewBox: '0 0 760 600' });
-    this.boardArea.append(svg);
-    el('rect', { class: 'pcb', x: 20, y: 110, width: 720, height: 380, rx: 18 }, svg);
-    el('rect', { class: 'usb', x: 6, y: 170, width: 78, height: 70, rx: 4 }, svg);
-    el('rect', { class: 'jack', x: 10, y: 380, width: 70, height: 66, rx: 6 }, svg);
-    el('rect', { class: 'chip', x: 330, y: 280, width: 300, height: 80, rx: 4 }, svg);
-    el('text', { class: 'chip-text', x: 480, y: 325, 'text-anchor': 'middle' }, svg).textContent = BOARD.mcu;
-    el('text', { class: 'silk', x: 150, y: 300, style: 'font-size:30px' }, svg).textContent = BOARD.name;
-    el('text', { class: 'silk small', x: 152, y: 322 }, svg).textContent = 'Uno compatible · 5 V · 16 MHz';
-    el('circle', { class: 'led-dot', cx: 182, cy: 200, r: 6 }, svg);
-    el('text', { class: 'silk small', x: 194, y: 204 }, svg).textContent = 'L (D13)';
-
-    // Top header, D13..D0, with the Uno's gap between D8 and D7.
-    const topY = 124;
-    el('rect', { class: 'header-bg', x: 186, y: topY - 4, width: 14 * STEP + 18, height: PIN + 8, rx: 3 }, svg);
-    HEADERS.top.forEach((id, i) => {
-      const x = 190 + i * STEP + (i >= 6 ? 14 : 0);
-      this.drawPin(svg, id, x, topY, 'top');
-    });
-
-    // Bottom header: power (not configurable), then A0..A5.
-    const botY = 440;
-    el('rect', { class: 'header-bg', x: 196, y: botY - 4, width: 7 * STEP + 8, height: PIN + 8, rx: 3 }, svg);
-    HEADERS.power.forEach((label, i) => {
-      const x = 200 + i * STEP;
-      const g = el('g', { class: 'powerpin' }, svg);
-      el('rect', { x, y: botY, width: PIN, height: PIN, rx: 3 }, g);
-      el('text', { class: 'pin-label', x: x + PIN / 2, y: botY - 10, 'text-anchor': 'middle', style: 'font-size:9px' }, svg).textContent = label;
-    });
-    el('rect', { class: 'header-bg', x: 486, y: botY - 4, width: 6 * STEP + 8, height: PIN + 8, rx: 3 }, svg);
-    HEADERS.bottom.forEach((id, i) => this.drawPin(svg, id, 490 + i * STEP, botY, 'bottom'));
+  // A different sketch was opened.
+  reset() {
+    this.selection = null;
+    this.selectedPin = null;
+    this.undoStack = [];
+    this.redoStack = [];
+    this.canvas.cancelWire();
+    this.render();
+    this.canvas.fitted = false;
+    requestAnimationFrame(() => this.canvas.fit());
   }
 
-  drawPin(svg, id, x, y, side) {
-    const g = el('g', { class: 'pin', tabindex: 0, 'data-pin': id }, svg);
-    el('rect', { x, y, width: PIN, height: PIN, rx: 4 }, g);
-    const cx = x + PIN / 2;
-    el('text', { class: 'pin-label', x: cx, y: side === 'top' ? y + PIN + 18 : y - 10, 'text-anchor': 'middle' }, svg).textContent = id;
-    const nameY = side === 'top' ? y - 14 : y + PIN + 16;
-    const name = el('text', {
-      class: 'pin-name',
-      x: cx,
-      y: nameY,
-      transform: `rotate(${side === 'top' ? -40 : 40} ${cx} ${nameY})`,
-    }, svg);
-    const title = el('title', {}, g);
-    g.addEventListener('click', () => this.select(id));
-    g.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') this.select(id);
-    });
-    this.pinNodes.set(id, { g, name, title });
-  }
-
-  select(id) {
-    // A pin that belongs to a component opens that component.
-    const cfg = this.getConfig();
-    const comp = !cfg.pins[id] && cfg.components.find((c) => Object.values(c.pins).includes(id));
-    if (comp) {
-      this.selectComponent(comp.id);
-      return;
+  drawPalette() {
+    this.palette.append(h('h3', {}, t('palette.title')));
+    for (const [group, types] of PALETTE) {
+      this.palette.append(h('div', { class: 'palette-group' }, t(group)));
+      for (const type of types) {
+        this.palette.append(h('button', {
+          class: 'palette-item',
+          title: PARTS[type].hint ?? '',
+          onclick: () => this.canvas.add(type, this.takenNames()),
+        }, PARTS[type].label));
+      }
     }
-    this.selected = id;
-    this.selectedComponent = null;
-    this.picking = false;
+  }
+
+  // Names used by pins set up by hand, so new parts don't clash with them.
+  takenNames() {
+    return new Set(Object.values(this.getConfig().pins).map((p) => p.name));
+  }
+
+  select(sel) {
+    this.selection = sel;
+    if (sel?.kind !== 'board') this.selectedPin = null;
     this.render();
     this.inspector.scrollTop = 0;
+  }
+
+  selectPin(id) {
+    this.selection = { kind: 'board', id: BOARD_PART };
+    this.selectedPin = id;
+    this.render();
+    this.inspector.querySelector('.pin-editor')?.scrollIntoView({ block: 'nearest' });
     this.inspector.querySelector('select[name=role]')?.focus();
   }
 
-  selectComponent(id) {
-    this.selectedComponent = id;
-    this.selected = null;
-    this.picking = false;
+  commit(next) {
+    this.undoStack.push(this.getConfig());
+    if (this.undoStack.length > 100) this.undoStack.shift();
+    this.redoStack = [];
+    this.setConfig(next);
     this.render();
-    this.inspector.scrollTop = 0;
   }
 
   update(mutator) {
     const next = structuredClone(this.getConfig());
     mutator(next);
-    this.setConfig(next);
+    this.commit(next);
+  }
+
+  undo() {
+    if (!this.undoStack.length) return;
+    this.redoStack.push(this.getConfig());
+    this.setConfig(this.undoStack.pop());
+    this.canvas.cancelWire();
+    this.render();
+  }
+
+  redo() {
+    if (!this.redoStack.length) return;
+    this.undoStack.push(this.getConfig());
+    this.setConfig(this.redoStack.pop());
     this.render();
   }
 
   render() {
     const cfg = this.getConfig();
+    const circuit = cfg.circuit;
+    const sel = this.selection;
+    if (sel?.kind === 'part' && !circuit.parts.some((p) => p.id === sel.id)) this.selection = null;
+    if (sel?.kind === 'wire' && !circuit.wires.some((w) => w.id === sel.id)) this.selection = null;
+
+    const marks = new Map(Object.entries(cfg.pins).map(([id, p]) => [id, ROLE_COLORS[p.role]]));
+    this.canvas.render(this.selection, marks);
+
+    const derived = deriveFromCircuit(circuit);
     const issues = validate(cfg);
-    const flagged = new Map();
-    for (const i of issues) for (const p of i.pins) if (flagged.get(p) !== 'error') flagged.set(p, i.level);
-
-    const compPins = new Map();
-    for (const c of cfg.components) {
-      for (const { key, label } of COMPONENTS[c.type].pins) if (c.pins[key]) compPins.set(c.pins[key], { c, label });
-    }
-
-    for (const [id, { g, name, title }] of this.pinNodes) {
-      const p = cfg.pins[id];
-      const cp = !p && compPins.get(id);
-      const claim = claimedBy(cfg, id);
-      g.classList.toggle('used', Boolean(p || cp));
-      g.classList.toggle('claimed', !p && !cp && Boolean(claim));
-      g.classList.toggle('selected', id === this.selected || Boolean(cp && cp.c.id === this.selectedComponent));
-      g.classList.toggle('error', flagged.get(id) === 'error');
-      g.classList.toggle('warning', flagged.get(id) === 'warning');
-      g.style.setProperty('--pin-color', p ? ROLE_COLORS[p.role] : cp ? COMPONENT_COLOR : '');
-      name.textContent = p ? p.name : cp ? `${cp.c.name} ${cp.label}` : claim ?? '';
-      name.style.fill = p || cp ? '#fff' : '#b9aef0';
-      title.textContent = p ? `${id}: ${p.name} (${t(`role.${p.role}`)})`
-        : cp ? `${id}: ${cp.c.name} ${cp.label} (${COMPONENTS[cp.c.type].name})`
-          : claim ? `${id}: ${claim}` : id;
-    }
-
+    const s = this.selection;
     this.inspector.replaceChildren(
-      this.selectedComponent ? this.renderComponentEditor(cfg) : this.renderPinSection(cfg),
-      this.renderComponents(cfg),
-      this.renderBuses(cfg),
+      s?.kind === 'part' ? this.renderPart(cfg, derived, s.id)
+        : s?.kind === 'wire' ? this.renderWire(cfg, s.id)
+          : s?.kind === 'board' ? this.renderBoard(cfg, derived)
+            : this.renderHelp(),
+      this.renderBuses(cfg, derived),
       this.renderIssues(issues),
       this.renderGenerated(cfg),
     );
   }
 
+  renderHelp() {
+    return h('section', {},
+      h('h2', {}, t('circuit.title')),
+      h('ul', { class: 'help' }, ['circuit.help1', 'circuit.help2', 'circuit.help3', 'circuit.help4'].map((k) => h('li', {}, t(k)))));
+  }
+
+  renderPart(cfg, derived, id) {
+    const part = cfg.circuit.parts.find((p) => p.id === id);
+    const def = PARTS[part.type];
+    const edit = (fn) => this.update((next) => fn(next.circuit.parts.find((p) => p.id === id)));
+    const section = h('section', {}, h('h2', {}, def.label));
+    if (def.hint) section.append(h('p', { class: 'empty' }, def.hint));
+
+    if (def.bind) {
+      section.append(h('label', { class: 'field' }, h('span', {}, t('pins.name')),
+        h('input', { value: part.name, spellcheck: 'false', onchange: (e) => edit((p) => { p.name = e.target.value.trim(); }) })));
+    }
+    for (const o of def.options ?? []) {
+      const value = part.options[o.key];
+      const input = o.choices
+        ? h('select', { onchange: (e) => edit((p) => { p.options[o.key] = e.target.value; }) },
+          o.choices.map((v) => h('option', { value: v, selected: String(v) === String(value) }, v)))
+        : h('input', {
+          type: 'number', min: o.min, max: o.max, value,
+          onchange: (e) => edit((p) => { p.options[o.key] = Number(e.target.value); }),
+        });
+      section.append(h('label', { class: 'field' }, h('span', {}, o.label), input));
+    }
+
+    // What it ended up connected to, and how to use it in code.
+    const resolved = resolve(cfg);
+    const pinEntry = derived.pins.find(([, , partId]) => partId === id);
+    const comp = derived.components.find((c) => c.id === id);
+    if (def.bind) {
+      const wired = pinEntry ? [pinEntry[0]] : comp ? Object.values(comp.pins) : [];
+      section.append(h('div', { class: 'field' }, h('span', {}, t('circuit.connectedTo')),
+        wired.length
+          ? h('span', { class: 'caps' }, wired.map((p) => h('span', { class: 'chip' }, p)))
+          : h('span', { class: 'muted' }, t('circuit.nothing'))));
+    }
+    let usage = [];
+    if (pinEntry && resolved.pins[pinEntry[0]]?.name === part.name) usage = usageFor(resolved.pins[pinEntry[0]]);
+    if (comp) usage = COMPONENTS[comp.type].usage(comp);
+    if (usage.length) section.append(h('h3', {}, t('pins.usage')), ...usage.map((u) => h('pre', { class: 'snippet' }, u)));
+    const libs = def.bind?.component ? COMPONENTS[def.bind.component].libraries : null;
+    if (libs?.length) {
+      section.append(h('div', { class: 'field' }, h('span', {}, t('components.library')),
+        h('span', { class: 'lib' }, libs.map((l) => l.split('@')[0]).join(', '))));
+    }
+    section.append(h('div', { class: 'actions' },
+      h('button', { onclick: () => this.canvas.rotateSelection() }, t('circuit.rotate')),
+      h('button', { class: 'danger', onclick: () => this.canvas.deleteSelection() }, t('circuit.delete'))));
+    return section;
+  }
+
+  renderWire(cfg, id) {
+    const wire = cfg.circuit.wires.find((w) => w.id === id);
+    return h('section', {},
+      h('h2', {}, t('circuit.wire')),
+      h('p', { class: 'empty' }, `${endLabel(cfg.circuit, wire.from)} → ${endLabel(cfg.circuit, wire.to)}`),
+      h('div', { class: 'field' }, h('span', {}, t('circuit.color')),
+        h('div', { class: 'swatches' }, Object.entries(WIRE_COLORS).map(([name, color]) => h('button', {
+          class: `swatch${wire.color === name ? ' active' : ''}`,
+          title: name,
+          style: `background:${color}`,
+          onclick: () => this.update((next) => { next.circuit.wires.find((w) => w.id === id).color = name; }),
+        })))),
+      h('div', { class: 'actions' },
+        h('button', { class: 'danger', onclick: () => this.canvas.deleteSelection() }, t('circuit.delete'))));
+  }
+
+  // The board: every signal pin and what uses it. Pins no part is wired to
+  // can still be given a role by hand (plain digital input/output etc).
+  renderBoard(cfg, derived) {
+    const byPin = new Map();
+    const use = (pin, partId, label) => {
+      const u = byPin.get(pin);
+      byPin.set(pin, u ? { partId: u.partId, label: `${u.label}, ${label}` } : { partId, label });
+    };
+    for (const [pin, role, partId] of derived.pins) use(pin, partId, role.name);
+    for (const c of derived.components) {
+      for (const { key, label } of COMPONENTS[c.type].pins) if (c.pins[key]) use(c.pins[key], c.id, `${c.name} ${label}`);
+    }
+    const rows = PINS.map(({ id }) => {
+      const used = byPin.get(id);
+      const manual = cfg.pins[id];
+      const claim = claimedBy(cfg, id);
+      const what = used ? used.label
+        : manual ? `${manual.name || '?'} · ${t(`role.${manual.role}`)}`
+          : claim ?? '—';
+      return h('tr', {
+        class: `${id === this.selectedPin ? 'active' : ''} ${used ? 'wired' : ''}`,
+        onclick: () => (used ? this.select({ kind: 'part', id: used.partId }) : this.selectPin(id)),
+      },
+      h('td', {}, manual && !used ? h('span', { class: 'dot', style: `background:${ROLE_COLORS[manual.role]}` }) : null, id),
+      h('td', {}, what));
+    });
+    return h('section', {},
+      h('h2', {}, BOARD.name),
+      h('p', { class: 'empty' }, t('circuit.boardHint')),
+      h('table', { class: 'pin-table' }, h('tbody', {}, rows)),
+      this.selectedPin && !byPin.has(this.selectedPin) ? this.renderPinSection(cfg) : null);
+  }
+
   renderPinSection(cfg) {
-    const id = this.selected;
-    if (!id) return h('section', {}, h('h2', {}, t('pins.title')), h('p', { class: 'empty' }, t('pins.hint')));
+    const id = this.selectedPin;
     const p = cfg.pins[id];
     const role = p?.role ?? 'unused';
-    const section = h('section', {},
-      h('h2', {}, t('pins.pin', { pin: id })),
+    const section = h('div', { class: 'pin-editor' },
+      h('h3', {}, t('pins.pin', { pin: id })),
       h('div', { class: 'caps' }, capabilities(id).map((c) => h('span', {}, c))),
     );
 
@@ -282,93 +383,20 @@ export class PinsView {
     return section;
   }
 
-  renderComponents(cfg) {
-    const section = h('section', {}, h('h3', {}, t('components.title')));
-    if (this.picking) {
-      section.append(
-        h('div', { class: 'picker' }, Object.entries(COMPONENTS).map(([type, def]) => h('button', {
-          class: 'card',
-          onclick: () => {
-            const next = addComponent(this.getConfig(), type);
-            this.setConfig(next);
-            this.selectComponent(next.components[next.components.length - 1].id);
-          },
-        }, h('strong', {}, def.name), h('small', {}, def.description)))),
-        h('button', { class: 'link', onclick: () => { this.picking = false; this.render(); } }, t('components.cancel')),
-      );
-      return section;
-    }
-    if (!cfg.components.length) section.append(h('p', { class: 'empty' }, t('components.none')));
-    section.append(h('ul', { class: 'comp-list' }, cfg.components.map((c) => h('li', {
-      class: c.id === this.selectedComponent ? 'active' : '',
-      onclick: () => this.selectComponent(c.id),
-    }, h('strong', {}, c.name || '?'), h('small', {}, COMPONENTS[c.type].name)))));
-    section.append(h('button', { class: 'add-comp', onclick: () => { this.picking = true; this.render(); } }, `+ ${t('components.add')}`));
-    return section;
-  }
-
-  renderComponentEditor(cfg) {
-    const c = cfg.components.find((x) => x.id === this.selectedComponent);
-    if (!c) {
-      this.selectedComponent = null;
-      return this.renderPinSection(cfg);
-    }
-    const def = COMPONENTS[c.type];
-    const edit = (fn) => this.update((next) => fn(next.components.find((x) => x.id === c.id)));
-    const section = h('section', {}, h('h2', {}, def.name), h('p', { class: 'empty' }, def.description));
-
-    section.append(h('label', { class: 'field' }, h('span', {}, t('pins.name')),
-      h('input', { value: c.name, spellcheck: 'false', onchange: (e) => edit((x) => { x.name = e.target.value.trim(); }) })));
-
-    for (const { key, label, needs } of def.pins) {
-      const choices = [...new Set([c.pins[key], ...freePinsFor(cfg, needs, c.id)].filter(Boolean))];
-      section.append(h('label', { class: 'field' }, h('span', {}, `${label} pin`),
-        h('select', { onchange: (e) => edit((x) => { x.pins[key] = e.target.value; }) },
-          c.pins[key] ? null : h('option', { value: '', selected: true }, '—'),
-          choices.map((id) => h('option', { value: id, selected: id === c.pins[key] }, id)))));
-    }
-    if (def.bus === 'i2c') {
-      section.append(h('div', { class: 'field' }, h('span', {}, t('components.bus')), h('span', {}, 'I2C: A4 SDA · A5 SCL')));
-    }
-    for (const o of def.options ?? []) {
-      const input = o.type === 'select'
-        ? h('select', { onchange: (e) => edit((x) => { x.options[o.key] = e.target.value; }) },
-          o.choices.map((v) => h('option', { value: v, selected: v === c.options[o.key] }, v)))
-        : h('input', {
-          type: 'number', min: o.min, max: o.max, value: c.options[o.key],
-          onchange: (e) => edit((x) => { x.options[o.key] = Number(e.target.value); }),
-        });
-      section.append(h('label', { class: 'field' }, h('span', {}, o.label), input));
-    }
-    if (def.libraries?.length) {
-      section.append(h('div', { class: 'field' }, h('span', {}, t('components.library')),
-        h('span', { class: 'lib' }, def.libraries.map((l) => l.split('@')[0]).join(', '))));
-    }
-    section.append(h('h3', {}, t('pins.usage')), ...def.usage(c).map((u) => h('pre', { class: 'snippet' }, u)));
-    section.append(h('button', {
-      class: 'danger',
-      onclick: () => {
-        this.setConfig(removeComponent(this.getConfig(), c.id));
-        this.selectedComponent = null;
-        this.render();
-      },
-    }, t('components.remove')));
-    return section;
-  }
-
-  renderBuses(cfg) {
-    const bus = (key, label, pins, extra) => h('div', { class: 'periph' },
-      h('label', { class: 'head' },
+  renderBuses(cfg, derived) {
+    const bus = (key, label, pins, extra, forced) => h('div', { class: 'periph' },
+      h('label', { class: 'head', title: forced ? t('circuit.i2cForced') : '' },
         h('input', {
           type: 'checkbox',
-          checked: cfg[key].enabled,
+          checked: cfg[key].enabled || forced,
+          disabled: forced,
           onchange: (e) => this.update((c) => {
             c[key].enabled = e.target.checked;
           }),
         }),
         label,
         h('small', {}, pins)),
-      cfg[key].enabled ? extra : null);
+      cfg[key].enabled || forced ? extra : null);
 
     return h('section', {},
       h('h3', {}, t('pins.peripherals')),
@@ -379,22 +407,36 @@ export class PinsView {
       bus('i2c', t('pins.i2c'), 'A4 SDA · A5 SCL',
         h('label', { class: 'field' }, h('span', {}, t('pins.i2cClock')),
           h('select', { onchange: (e) => this.update((c) => { c.i2c.clock = Number(e.target.value); }) },
-            I2C_CLOCKS.map((b) => h('option', { value: b, selected: b === Number(cfg.i2c.clock) }, `${b / 1000} kHz`))))),
+            I2C_CLOCKS.map((b) => h('option', { value: b, selected: b === Number(cfg.i2c.clock) }, `${b / 1000} kHz`)))),
+        derived.i2c),
       bus('spi', t('pins.spi'), 'D11 MOSI · D12 MISO · D13 SCK', null),
     );
   }
 
   renderIssues(issues) {
     const cfg = this.getConfig();
-    const missing = missingHandlerButtons(cfg, this.getSources(), this.onInsertHandler);
+    const missing = missingHandlers(cfg, this.getSources())
+      .map((fn) => h('p', {}, h('button', { class: 'link', onclick: () => this.onInsertHandler(fn) }, t('pins.insertHandler', { fn }))));
     return h('section', {},
       h('h3', {}, t('pins.issues')),
       h('ul', { class: 'issues' },
         issues.length
-          ? issues.map((i) => h('li', { class: i.level, onclick: () => this.select(i.pins[0]) }, i.message))
+          ? issues.map((i) => h('li', { class: i.level, onclick: () => this.showIssue(i) }, i.message))
           : h('li', { class: 'ok' }, t('pins.noIssues'))),
       missing,
     );
+  }
+
+  // Selects whatever a problem is about: the part using its pin, or the pin.
+  showIssue(issue) {
+    const pin = issue.pins[0];
+    if (!pin) return;
+    const derived = deriveFromCircuit(this.getConfig().circuit);
+    const entry = derived.pins.find(([p]) => p === pin);
+    const comp = derived.components.find((c) => Object.values(c.pins).includes(pin));
+    const partId = entry?.[2] ?? comp?.id;
+    if (partId && !this.getConfig().pins[pin]) this.select({ kind: 'part', id: partId });
+    else this.selectPin(pin);
   }
 
   renderGenerated(cfg) {
@@ -413,10 +455,4 @@ export class PinsView {
       }),
     );
   }
-
-}
-
-function missingHandlerButtons(cfg, sources, onInsert) {
-  return missingHandlers(cfg, sources)
-    .map((fn) => h('p', {}, h('button', { class: 'link', onclick: () => onInsert(fn) }, t('pins.insertHandler', { fn }))));
 }

@@ -4,13 +4,14 @@ An Arduino-style desktop IDE for the **STFKart** board, for Windows and Linux.
 
 STFKart is electrically an Arduino Uno (ATmega328P, 16 MHz), so STFIDE builds
 and uploads with the official Arduino toolchain. What it adds is a
-**Pins tab**: click a pin on a drawing of the board, say what it is (LED,
-button, servo, potentiometer…), give it a name, and STFIDE writes the setup
-code for you. Your sketch stays plain Arduino code.
+**Circuit tab**, like Wokwi's circuit editor without the simulator: drop
+parts (LED, button, servo, sensors, LCD…) next to the board, wire them to its
+pins, give them names, and STFIDE writes the setup code for you. Your sketch
+stays plain Arduino code.
 
 ```cpp
 void setup() {
-  stfkartBegin();            // pinMode, Serial.begin, servo.attach… from the Pins tab
+  stfkartBegin();            // pinMode, Serial.begin, servo.attach… from the Circuit tab
 }
 
 void loop() {
@@ -24,31 +25,36 @@ void loop() {
 
 - Code editor (Monaco, the editor from VS Code) with Arduino autocomplete that
   knows your pin names, hover help, and multi-file sketches.
-- **Pins tab** with plain-language warnings: pins used by USB/Serial, I2C or
-  SPI, timer clashes between Servo/tone() and analogWrite(), invalid or
-  duplicate names.
+- **Circuit tab**: a canvas with the STFKart and parts drawn with
+  [@wokwi/elements](https://github.com/wokwi/wokwi-elements). Click a pin to
+  start a wire, click another to finish; resistors pass the signal through, so
+  an LED wired via a resistor still counts. Delete, rotate (R), undo
+  (Ctrl+Z), pan and zoom. Pins with no part can still be set up by hand.
+- Plain-language warnings: pins used by USB/Serial, I2C or SPI, timer clashes
+  between Servo/tone() and analogWrite(), parts not wired yet, two parts on
+  one pin, invalid or duplicate names.
 - Verify and Upload, with errors marked in the editor, click-to-jump, and
   beginner hints for common mistakes (missing `;`, misspelled names, missing
   interrupt functions, serial port permissions on Linux).
-- **Components** on the Pins tab: ultrasonic distance sensor, DHT11/DHT22,
-  DS18B20 probe, I2C LCD, NeoPixel strip, RGB LED and relay. Adding one picks
-  free pins, bundles its library, and gives you a ready object such as
-  `distance.readCm()`, `climate.readTemperature()` or `pump.on()`.
+- Ready-made parts: ultrasonic distance sensor, DHT11/DHT22, DS18B20 probe,
+  I2C LCD, NeoPixel ring, RGB LED and relay. Wiring one bundles its library
+  and gives you a ready object such as `distance.readCm()`,
+  `climate.readTemperature()` or `pump.on()`.
 - Port picker that recognises Uno-compatible USB chips, and a serial monitor
   that steps aside automatically while uploading.
 - Examples: Blink, Button, Fade, AnalogRead, ServoKnob, InterruptCounter, Melody,
   WeatherStation, RainbowStrip.
-- Works offline: arduino-cli, avr-gcc, avrdude and every library the Pins tab
+- Works offline: arduino-cli, avr-gcc, avrdude and every library the Circuit tab
   uses are bundled in the installer.
 
-## How the Pins tab works
+## How the Circuit tab works
 
 Each sketch folder holds:
 
 | File | Who writes it |
 | --- | --- |
 | `MySketch.ino` (and any other tabs) | You |
-| `stfkart.pins.json` | The Pins tab |
+| `stfkart.pins.json` | The Circuit tab (parts, wires and pin settings) |
 | `stfkart_pins.h`, `stfkart_pins.cpp` | Generated from the JSON every time you save |
 
 STFIDE adds `#include "stfkart_pins.h"` to the main sketch at build time (the
@@ -56,7 +62,7 @@ way the Arduino IDE adds `Arduino.h`), so sketches don't need that line. Extra
 `.cpp`/`.h` tabs include it themselves; new tabs start with that line.
 
 Generated files are always rewritten in full. They don't get editor tabs; you
-can read them at the bottom of the Pins tab. There are no "USER CODE" markers to keep intact, and regenerating can never break your
+can read them at the bottom of the Circuit tab. There are no "USER CODE" markers to keep intact, and regenerating can never break your
 code.
 
 ## Development
@@ -85,7 +91,7 @@ build artifacts.
 
 ```
 src/main/        Electron main process: window, menus, arduino-cli, serial ports
-src/renderer/    UI: toolbar, editor, Pins tab, output, serial monitor
+src/renderer/    UI: toolbar, editor, Circuit tab, output, serial monitor
 src/common/      Shared by both: board definition, pin model + codegen, components, i18n, diagnostics
 resources/hardware/stfkart/   arduino-cli platform for STFKart (FQBN stfkart:avr:stfkart)
 examples/        Example sketches with their pin setups
@@ -96,7 +102,7 @@ scripts/         fetch-toolchain.js
 
 - `resources/hardware/stfkart/avr/boards.txt`: board settings, plus the USB
   vid/pid so the board is detected by name.
-- `src/common/board.js`: pin capabilities and header layout for the Pins tab.
+- `src/common/board.js`: pin capabilities and header layout for the Circuit tab.
 - `src/main/serial.js`: USB vendor ids shown as "STFKart" in the port picker.
 
 ### Linux serial permissions

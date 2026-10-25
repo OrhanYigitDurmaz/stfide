@@ -1,5 +1,5 @@
 // Monaco editor setup: one model per sketch file, Arduino-aware
-// autocomplete (including pin names from the Pins tab), and error markers.
+// autocomplete (including pin names from the Circuit tab), and error markers.
 
 import { codeSymbols } from '../common/pins.js';
 
@@ -17,7 +17,7 @@ export function loadMonaco() {
 
 // Common Arduino functions, offered as snippets.
 const ARDUINO_API = [
-  ['pinMode', 'pinMode(${1:pin}, ${2|OUTPUT,INPUT,INPUT_PULLUP|});', 'Sets a pin as input or output. The Pins tab does this for you.'],
+  ['pinMode', 'pinMode(${1:pin}, ${2|OUTPUT,INPUT,INPUT_PULLUP|});', 'Sets a pin as input or output. The Circuit tab does this for you.'],
   ['digitalWrite', 'digitalWrite(${1:pin}, ${2|HIGH,LOW|});', 'Turns a digital pin on (HIGH) or off (LOW).'],
   ['digitalRead', 'digitalRead(${1:pin})', 'Reads a digital pin: HIGH or LOW.'],
   ['analogRead', 'analogRead(${1:pin})', 'Reads an analog pin (A0–A5): 0 to 1023.'],

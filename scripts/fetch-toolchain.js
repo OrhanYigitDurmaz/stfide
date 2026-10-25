@@ -16,7 +16,7 @@ import { allComponentLibraries } from '../src/common/components.js';
 
 const ARDUINO_CLI_VERSION = '1.3.1';
 const AVR_CORE = 'arduino:avr@1.8.6';
-// Servo for the servo pin role, plus every library a Pins tab component uses.
+// Servo for the servo pin role, plus every library a Circuit tab component uses.
 const LIBRARIES = ['Servo@1.2.2', ...allComponentLibraries()];
 
 const root = path.resolve(import.meta.dirname, '..');

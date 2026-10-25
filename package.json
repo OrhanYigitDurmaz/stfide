@@ -18,6 +18,7 @@
     "dist:win": "node scripts/fetch-toolchain.js --platform win32 && electron-builder --win --publish never"
   },
   "dependencies": {
+    "@wokwi/elements": "1.9.2",
     "monaco-editor": "0.55.1",
     "serialport": "13.0.0"
   },
@@ -39,7 +40,10 @@
       "src/**/*",
       "build/icon.png",
       "!node_modules/monaco-editor/{dev,esm}/**",
-      "!node_modules/monaco-editor/**/*.map"
+      "!node_modules/monaco-editor/**/*.map",
+      "!node_modules/@wokwi/elements/dist/{esm,cjs}/**",
+      "!node_modules/@wokwi/elements/dist/wokwi-elements.bundle.js",
+      "!node_modules/{lit,lit-html,lit-element,@lit,@lit-labs,@types,csstype}/**"
     ],
     "extraResources": [
       {

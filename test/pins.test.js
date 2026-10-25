@@ -131,7 +131,7 @@ test('missingHandlers finds handlers not yet written', () => {
 });
 
 test('normalizeConfig drops unknown pins and roles', () => {
-  const cfg = normalizeConfig({ pins: { D99: { role: 'led', name: 'x' }, D3: { role: 'laser', name: 'y' }, D4: { role: 'led', name: 'z' } } });
+  const cfg = normalizeConfig({ circuit: {}, pins: { D99: { role: 'led', name: 'x' }, D3: { role: 'laser', name: 'y' }, D4: { role: 'led', name: 'z' } } });
   assert.deepEqual(Object.keys(cfg.pins), ['D4']);
   assert.equal(cfg.pins.D4.initial, 'LOW');
 });

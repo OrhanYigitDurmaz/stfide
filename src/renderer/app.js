@@ -1,4 +1,4 @@
-// Renderer entry point: wires the toolbar, editor, Pins tab, output panel
+// Renderer entry point: wires the toolbar, editor, Circuit tab, output panel
 // and serial monitor together.
 
 import { BOARD } from '../common/board.js';
@@ -145,8 +145,7 @@ function openSketch(sketch) {
   state.active = sketch.main;
   renderTabs();
   editor.show(sketch.main);
-  pinsView.selected = null;
-  pinsView.render();
+  pinsView.reset();
   syncDirty();
   document.title = `${sketch.name} | STFIDE`;
   status('');
@@ -250,7 +249,7 @@ function normalizeTabName(v) {
 function renderTabs() {
   const bar = $('#file-tabs');
   bar.replaceChildren();
-  // Generated pin files are not tabs; they are shown on the Pins tab.
+  // Generated pin files are not tabs; they are shown on the Circuit tab.
   for (const f of state.files.filter((x) => !x.generated)) {
     const b = document.createElement('button');
     b.className = `tab${f.name === state.active ? ' active' : ''}`;

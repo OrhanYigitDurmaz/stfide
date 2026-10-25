@@ -9,7 +9,7 @@ const SOURCE_EXT = new Set(['.ino', '.cpp', '.c', '.h', '.hpp']);
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 
 export const NEW_SKETCH = `void setup() {
-  stfkartBegin();  // sets up the pins from the Pins tab
+  stfkartBegin();  // sets up the pins from the Circuit tab
 
 }
 
