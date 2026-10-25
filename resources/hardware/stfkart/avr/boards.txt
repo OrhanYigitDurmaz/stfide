@@ -1,0 +1,29 @@
+# STFKart board definition.
+# The STFKart is electrically identical to the Arduino Uno (ATmega328P,
+# 16 MHz, Optiboot), so every value below mirrors arduino:avr:uno.
+# When the STFKart hardware is final, add its USB vid/pid and adjust here.
+
+stfkart.name=STFKart
+
+stfkart.upload.tool=arduino:avrdude
+stfkart.upload.tool.default=arduino:avrdude
+stfkart.upload.protocol=arduino
+stfkart.upload.maximum_size=32256
+stfkart.upload.maximum_data_size=2048
+stfkart.upload.speed=115200
+
+stfkart.bootloader.tool=arduino:avrdude
+stfkart.bootloader.tool.default=arduino:avrdude
+stfkart.bootloader.low_fuses=0xFF
+stfkart.bootloader.high_fuses=0xDE
+stfkart.bootloader.extended_fuses=0xFD
+stfkart.bootloader.unlock_bits=0x3F
+stfkart.bootloader.lock_bits=0x0F
+stfkart.bootloader.file=optiboot/optiboot_atmega328.hex
+
+stfkart.build.mcu=atmega328p
+stfkart.build.f_cpu=16000000L
+stfkart.build.board=AVR_UNO
+stfkart.build.core=arduino:arduino
+stfkart.build.variant=arduino:standard
+stfkart.build.extra_flags=-DSTFKART

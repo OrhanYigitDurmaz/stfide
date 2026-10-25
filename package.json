@@ -1,0 +1,89 @@
+{
+  "name": "stfide",
+  "productName": "STFIDE",
+  "version": "0.1.0",
+  "description": "Arduino-style IDE for the STFKart board, with a visual pin editor",
+  "main": "src/main/main.js",
+  "author": {
+    "name": "Orhan Yiğit Durmaz",
+    "email": "82653390+OrhanYigitDurmaz@users.noreply.github.com"
+  },
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test \"test/*.test.js\"",
+    "fetch-toolchain": "node scripts/fetch-toolchain.js",
+    "dist:linux": "node scripts/fetch-toolchain.js --platform linux && electron-builder --linux --publish never",
+    "dist:win": "node scripts/fetch-toolchain.js --platform win32 && electron-builder --win --publish never"
+  },
+  "dependencies": {
+    "monaco-editor": "0.55.1",
+    "serialport": "13.0.0"
+  },
+  "devDependencies": {
+    "electron": "44.9.3",
+    "electron-builder": "26.18.0"
+  },
+  "type": "module",
+  "homepage": "https://github.com/OrhanYigitDurmaz/stfide",
+  "build": {
+    "appId": "io.github.orhanyigitdurmaz.stfide",
+    "productName": "STFIDE",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "package.json",
+      "src/**/*",
+      "build/icon.png",
+      "!node_modules/monaco-editor/{dev,esm}/**",
+      "!node_modules/monaco-editor/**/*.map"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/toolchain",
+        "to": "toolchain"
+      },
+      {
+        "from": "resources/hardware",
+        "to": "hardware"
+      },
+      {
+        "from": "examples",
+        "to": "examples"
+      }
+    ],
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Development",
+      "icon": "build/icon.png",
+      "synopsis": "Arduino-style IDE for the STFKart board"
+    },
+    "deb": {
+      "depends": [
+        "libgtk-3-0",
+        "libnss3",
+        "libxss1",
+        "libasound2 | libasound2t64"
+      ]
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "createDesktopShortcut": true
+    },
+    "npmRebuild": false
+  }
+}

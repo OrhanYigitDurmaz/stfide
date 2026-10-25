@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; worker-src 'self' blob:">
+  <title>STFIDE</title>
+  <link rel="stylesheet" href="../../node_modules/monaco-editor/min/vs/editor/editor.main.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="toolbar">
+    <div class="group">
+      <button class="round primary" id="btn-verify" data-i18n-title="toolbar.verify"></button>
+      <button class="round primary" id="btn-upload" data-i18n-title="toolbar.upload"></button>
+    </div>
+    <div class="group">
+      <button class="icon" id="btn-new" data-i18n-title="toolbar.new"></button>
+      <button class="icon" id="btn-open" data-i18n-title="toolbar.open"></button>
+      <button class="icon" id="btn-save" data-i18n-title="toolbar.save"></button>
+      <div class="dropdown">
+        <button class="text" id="btn-examples"><span data-i18n="toolbar.examples"></span> ▾</button>
+        <div class="menu" id="examples-menu" hidden></div>
+      </div>
+    </div>
+    <div class="segmented" role="tablist">
+      <button role="tab" id="tab-code" class="active" data-i18n="view.code"></button>
+      <button role="tab" id="tab-pins" data-i18n="view.pins"></button>
+    </div>
+    <div class="spacer"></div>
+    <label class="port">
+      <span class="board-chip">STFKart</span>
+      <select id="port-select"></select>
+    </label>
+    <button class="icon" id="btn-monitor" data-i18n-title="toolbar.monitor"></button>
+  </header>
+
+  <main id="views">
+    <section id="code-view" class="view">
+      <div class="file-tabs" id="file-tabs"></div>
+      <div id="editor"></div>
+    </section>
+    <section id="pins-view" class="view" hidden></section>
+  </main>
+
+  <div class="splitter" id="splitter"></div>
+
+  <section class="panel" id="panel">
+    <div class="panel-tabs">
+      <button id="ptab-output" class="active" data-i18n="panel.output"></button>
+      <button id="ptab-monitor" data-i18n="panel.monitor"></button>
+      <div class="spacer"></div>
+      <div class="monitor-controls" id="monitor-controls" hidden>
+        <label><input type="checkbox" id="mon-autoscroll" checked> <span data-i18n="monitor.autoscroll"></span></label>
+        <select id="mon-ending"></select>
+        <select id="mon-baud"></select>
+        <button class="text" id="mon-connect"></button>
+      </div>
+      <button class="text" id="panel-clear" data-i18n="panel.clear"></button>
+    </div>
+    <div class="panel-body">
+      <div id="output" class="console"></div>
+      <div id="monitor" class="monitor" hidden>
+        <div id="monitor-log" class="console"></div>
+        <form id="monitor-form">
+          <input id="monitor-input" autocomplete="off" data-i18n-placeholder="monitor.placeholder">
+          <button type="submit" data-i18n="monitor.send"></button>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <footer class="statusbar">
+    <span id="status-msg"></span>
+    <span class="spacer"></span>
+    <span id="status-size"></span>
+    <span id="status-pos"></span>
+    <span id="status-board"></span>
+  </footer>
+
+  <div id="modal" class="modal" hidden></div>
+
+  <script src="../../node_modules/monaco-editor/min/vs/loader.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
