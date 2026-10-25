@@ -148,7 +148,6 @@ button svg { width: 18px; height: 18px; }
   display: flex; align-items: center; gap: 6px;
 }
 .file-tabs .tab.active { background: var(--bg); color: var(--text); box-shadow: inset 0 2px var(--accent); }
-.file-tabs .tab.generated { font-style: italic; }
 .file-tabs .tab .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text); }
 .file-tabs .tab .close { opacity: .6; padding: 0 2px; }
 .file-tabs .tab .close:hover { opacity: 1; }
@@ -300,7 +299,9 @@ pre.snippet, pre.code {
   margin: 0 0 6px;
   user-select: text;
 }
-pre.code { max-height: 260px; }
+pre.code { max-height: 260px; margin-top: 6px; }
+.inspector details { margin-bottom: 6px; }
+.inspector summary { cursor: pointer; font-family: var(--mono); font-size: 12px; }
 .inspector .link { color: var(--accent-hover); background: none; border: 0; padding: 0; text-decoration: underline; }
 
 /* ---------- modal ---------- */

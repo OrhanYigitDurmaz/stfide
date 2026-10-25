@@ -248,11 +248,11 @@ function normalizeTabName(v) {
 function renderTabs() {
   const bar = $('#file-tabs');
   bar.replaceChildren();
-  for (const f of state.files) {
+  // Generated pin files are not tabs; they are shown on the Pins tab.
+  for (const f of state.files.filter((x) => !x.generated)) {
     const b = document.createElement('button');
-    b.className = `tab${f.name === state.active ? ' active' : ''}${f.generated ? ' generated' : ''}`;
+    b.className = `tab${f.name === state.active ? ' active' : ''}`;
     b.textContent = f.name;
-    if (f.generated) b.title = 'Generated from the Pins tab (read-only)';
     if (f.dirty) {
       const dot = document.createElement('span');
       dot.className = 'dot';

@@ -48,8 +48,8 @@ Each sketch folder holds:
 | `stfkart.pins.json` | The Pins tab |
 | `stfkart_pins.h`, `stfkart_pins.cpp` | Generated from the JSON every time you save |
 
-Generated files are always rewritten in full and shown read-only, so there are
-no "USER CODE" markers to keep intact, and regenerating can never break your
+Generated files are always rewritten in full. They don't get editor tabs; you
+can read them at the bottom of the Pins tab. There are no "USER CODE" markers to keep intact, and regenerating can never break your
 code.
 
 ## Development

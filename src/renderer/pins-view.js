@@ -3,7 +3,7 @@
 
 import { BOARD, HEADERS, PIN_BY_ID } from '../common/board.js';
 import {
-  BAUD_RATES, HEADER_FILE, I2C_CLOCKS, INTERRUPT_MODES, assignRole, generate, handlerName, missingHandlers, rolesForPin, usageFor, validate,
+  BAUD_RATES, GENERATED_FILES, I2C_CLOCKS, INTERRUPT_MODES, assignRole, generate, handlerName, missingHandlers, rolesForPin, usageFor, validate,
 } from '../common/pins.js';
 import { t } from '../common/i18n.js';
 
@@ -73,6 +73,7 @@ export class PinsView {
     this.onInsertHandler = onInsertHandler;
     this.selected = null;
     this.pinNodes = new Map();
+    this.openGenerated = new Set();
 
     this.boardArea = h('div', { class: 'board-area' });
     this.inspector = h('aside', { class: 'inspector' });
@@ -293,11 +294,19 @@ export class PinsView {
     const files = generate(cfg);
     return h('section', {},
       h('h3', {}, t('pins.generated')),
-      h('details', {},
-        h('summary', {}, HEADER_FILE),
-        h('pre', { class: 'code' }, files[HEADER_FILE])),
+      GENERATED_FILES.map((name) => {
+        const d = h('details', { open: this.openGenerated.has(name) },
+          h('summary', {}, name),
+          h('pre', { class: 'code' }, files[name]));
+        d.addEventListener('toggle', () => {
+          if (d.open) this.openGenerated.add(name);
+          else this.openGenerated.delete(name);
+        });
+        return d;
+      }),
     );
   }
+
 }
 
 function missingHandlerButtons(cfg, sources, onInsert) {
