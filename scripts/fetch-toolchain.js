@@ -12,10 +12,12 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { allComponentLibraries } from '../src/common/components.js';
 
 const ARDUINO_CLI_VERSION = '1.3.1';
 const AVR_CORE = 'arduino:avr@1.8.6';
-const LIBRARIES = ['Servo@1.2.2'];
+// Servo for the servo pin role, plus every library a Pins tab component uses.
+const LIBRARIES = ['Servo@1.2.2', ...allComponentLibraries()];
 
 const root = path.resolve(import.meta.dirname, '..');
 const out = path.join(root, 'resources', 'toolchain');

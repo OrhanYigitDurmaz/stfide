@@ -7,12 +7,15 @@
 //     "pins": { "D13": { "role": "led", "name": "redLed" }, ... },
 //     "serial": { "enabled": true, "baud": 9600 },
 //     "i2c": { "enabled": false, "clock": 100000 },
-//     "spi": { "enabled": false }
+//     "spi": { "enabled": false },
+//     "components": [{ "id": "c1", "type": "dht", "name": "climate",
+//                      "pins": { "data": "D2" }, "options": { "model": "DHT11" } }]
 //   }
 // The generated stfkart_pins.h / stfkart_pins.cpp sit next to it. They are
 // always rewritten in full, so the user's own .ino is never touched.
 
 import { BOARD, PINS, PIN_BY_ID } from './board.js';
+import { COMPONENTS, HELPERS } from './components.js';
 import { t } from './i18n.js';
 
 export const CONFIG_FILE = 'stfkart.pins.json';
@@ -58,6 +61,7 @@ export function emptyConfig() {
     serial: { enabled: true, baud: 9600 },
     i2c: { enabled: false, clock: 100000 },
     spi: { enabled: false },
+    components: [],
   };
 }
 
@@ -70,12 +74,99 @@ export function normalizeConfig(raw) {
     serial: { ...base.serial, ...(raw?.serial ?? {}) },
     i2c: { ...base.i2c, ...(raw?.i2c ?? {}) },
     spi: { ...base.spi, ...(raw?.spi ?? {}) },
+    components: [],
   };
   for (const [id, p] of Object.entries(raw?.pins ?? {})) {
     if (!PIN_BY_ID[id] || !p || !ROLES[p.role] || p.role === 'unused') continue;
     cfg.pins[id] = { ...ROLES[p.role].defaults, ...p };
   }
+  for (const c of raw?.components ?? []) {
+    const def = COMPONENTS[c?.type];
+    if (!def) continue;
+    const pins = {};
+    for (const { key } of def.pins) if (PIN_BY_ID[c.pins?.[key]]) pins[key] = c.pins[key];
+    const options = {};
+    for (const o of def.options ?? []) options[o.key] = c.options?.[o.key] ?? o.default;
+    cfg.components.push({ id: String(c.id || `c${cfg.components.length + 1}`), type: c.type, name: String(c.name ?? ''), pins, options });
+  }
   return cfg;
+}
+
+// ---------------------------------------------------------------------------
+// Components
+
+// What can drive a component pin.
+export function pinSupports(pinId, need) {
+  const pin = PIN_BY_ID[pinId];
+  if (!pin) return false;
+  if (need === 'pwm') return pin.pwm;
+  if (need === 'interrupt') return pin.interrupt !== undefined;
+  return true;
+}
+
+// Every use of every pin: [{ pin, owner, label }], where owner is a pin id
+// for single-pin roles or a component id.
+export function pinUses(cfg) {
+  const uses = Object.entries(cfg.pins).map(([pin, p]) => ({ pin, owner: pin, label: p.name || pin }));
+  for (const c of cfg.components) {
+    const def = COMPONENTS[c.type];
+    for (const { key, label } of def.pins) {
+      if (c.pins[key]) uses.push({ pin: c.pins[key], owner: c.id, label: `${c.name || def.name} (${label})` });
+    }
+  }
+  return uses;
+}
+
+// Pins taken by roles, components or enabled buses.
+function takenPins(cfg, exceptComponent) {
+  const taken = new Set(pinUses(cfg).filter((u) => u.owner !== exceptComponent).map((u) => u.pin));
+  const { serial, i2c, spi } = BOARD.peripherals;
+  if (cfg.serial.enabled) serial.pins.forEach((p) => taken.add(p));
+  if (cfg.i2c.enabled) i2c.pins.forEach((p) => taken.add(p));
+  if (cfg.spi.enabled) spi.pins.forEach((p) => taken.add(p));
+  return taken;
+}
+
+// Free pins a component pin could move to, best first. D13 (on-board LED)
+// and D0/D1 (USB) come last.
+export function freePinsFor(cfg, need, exceptComponent) {
+  const taken = takenPins(cfg, exceptComponent);
+  const last = new Set(['D13', 'D0', 'D1']);
+  return PINS.map((p) => p.id)
+    .filter((id) => !taken.has(id) && pinSupports(id, need))
+    .sort((a, b) => Number(last.has(a)) - Number(last.has(b)));
+}
+
+function allNames(cfg) {
+  return new Set([
+    ...Object.values(cfg.pins).flatMap((p) => (p.name ? namesForPin(p) : [])),
+    ...cfg.components.map((c) => c.name),
+  ]);
+}
+
+export function addComponent(cfg, type) {
+  const def = COMPONENTS[type];
+  const next = structuredClone(cfg);
+  const taken = allNames(next);
+  let name = def.prefix;
+  for (let i = 2; taken.has(name); i++) name = `${def.prefix}${i}`;
+  let n = next.components.length + 1;
+  while (next.components.some((c) => c.id === `c${n}`)) n++;
+  const comp = { id: `c${n}`, type, name, pins: {}, options: {} };
+  for (const o of def.options ?? []) comp.options[o.key] = o.default;
+  next.components.push(comp);
+  for (const { key, needs } of def.pins) {
+    const free = freePinsFor(next, needs);
+    if (free.length) comp.pins[key] = free[0];
+  }
+  if (def.bus === 'i2c') next.i2c.enabled = true;
+  return next;
+}
+
+export function removeComponent(cfg, id) {
+  const next = structuredClone(cfg);
+  next.components = next.components.filter((c) => c.id !== id);
+  return next;
 }
 
 // Picks a free default name like led1, led2...
@@ -149,69 +240,96 @@ function checkIdent(issues, pinId, name, invalidKey) {
 export function validate(cfg) {
   const issues = [];
   const used = Object.entries(cfg.pins);
+  const uses = pinUses(cfg);
+  const err = (pins, message) => issues.push({ level: 'error', pins, message });
+  const warn = (pins, message) => issues.push({ level: 'warning', pins, message });
 
   for (const [id, p] of used) {
     const pin = PIN_BY_ID[id];
     if (!ROLES[p.role].allowed(pin)) {
       const why = ROLES[p.role].why ? ` ${t(ROLES[p.role].why)}` : '';
-      issues.push({ level: 'error', pins: [id], message: t('issue.roleNotSupported', { pin: id, role: t(`role.${p.role}`) }) + why });
+      err([id], t('issue.roleNotSupported', { pin: id, role: t(`role.${p.role}`) }) + why);
     }
     if (!p.name) {
-      issues.push({ level: 'error', pins: [id], message: t('issue.nameMissing', { pin: id }) });
+      err([id], t('issue.nameMissing', { pin: id }));
     } else {
       checkIdent(issues, id, p.name, 'issue.nameInvalid');
     }
     if (p.role === 'interrupt' && p.handler) checkIdent(issues, id, p.handler, 'issue.handlerInvalid');
   }
 
+  for (const c of cfg.components) {
+    const def = COMPONENTS[c.type];
+    const compPins = Object.values(c.pins);
+    if (!c.name) err(compPins, t('issue.componentNameMissing', { component: def.name }));
+    else checkIdent(issues, compPins[0] ?? c.name, c.name, 'issue.nameInvalid');
+    for (const { key, label, needs } of def.pins) {
+      const id = c.pins[key];
+      if (!id) err([], t('issue.componentPinMissing', { name: c.name, label }));
+      else if (!pinSupports(id, needs)) err([id], t('issue.componentPinNeeds', { name: c.name, label, pin: id, need: t(`need.${needs}`) }));
+    }
+    if (def.bus === 'i2c' && !cfg.i2c.enabled) err([], t('issue.needsI2c', { name: c.name }));
+  }
+
   // Duplicate names, including the extra names some roles generate.
   const owners = new Map();
-  for (const [id, p] of used) {
-    if (!p.name) continue;
-    for (const n of namesForPin(p)) {
-      if (!owners.has(n)) owners.set(n, new Set());
-      owners.get(n).add(id);
-    }
+  const own = (n, where) => {
+    if (!owners.has(n)) owners.set(n, new Set());
+    owners.get(n).add(where);
+  };
+  for (const [id, p] of used) if (p.name) for (const n of namesForPin(p)) own(n, id);
+  for (const c of cfg.components) if (c.name) own(c.name, Object.values(c.pins)[0] ?? c.name);
+  for (const [name, where] of owners) {
+    if (where.size > 1) err([...where].filter((w) => PIN_BY_ID[w]), t('issue.nameDuplicate', { name, pins: [...where].join(', ') }));
   }
-  for (const [name, ids] of owners) {
-    if (ids.size > 1) issues.push({ level: 'error', pins: [...ids], message: t('issue.nameDuplicate', { name, pins: [...ids].join(', ') }) });
+
+  // One pin, one job.
+  const byPin = new Map();
+  for (const u of uses) {
+    if (!byPin.has(u.pin)) byPin.set(u.pin, []);
+    byPin.get(u.pin).push(u);
+  }
+  for (const [pin, list] of byPin) {
+    if (list.length > 1) err([pin], t('issue.pinShared', { pin, users: list.map((u) => u.label).join(', ') }));
   }
 
   // Shared pins.
   const { serial, i2c, spi } = BOARD.peripherals;
   for (const id of serial.pins) {
-    if (!cfg.pins[id]) continue;
-    if (cfg.serial.enabled) issues.push({ level: 'error', pins: [id], message: t('issue.serialPin', { pin: id, label: serial.labels[id] }) });
-    else issues.push({ level: 'warning', pins: [id], message: t('issue.serialShared', { pin: id }) });
+    if (!byPin.has(id)) continue;
+    if (cfg.serial.enabled) err([id], t('issue.serialPin', { pin: id, label: serial.labels[id] }));
+    else warn([id], t('issue.serialShared', { pin: id }));
   }
   if (cfg.i2c.enabled) {
-    for (const id of i2c.pins) {
-      if (cfg.pins[id]) issues.push({ level: 'error', pins: [id], message: t('issue.i2cPin', { pin: id, label: i2c.labels[id] }) });
-    }
+    for (const id of i2c.pins) if (byPin.has(id)) err([id], t('issue.i2cPin', { pin: id, label: i2c.labels[id] }));
   }
   if (cfg.spi.enabled) {
-    for (const id of spi.pins) {
-      if (cfg.pins[id]) issues.push({ level: 'error', pins: [id], message: t('issue.spiPin', { pin: id, label: spi.labels[id] }) });
-    }
+    for (const id of spi.pins) if (byPin.has(id)) err([id], t('issue.spiPin', { pin: id, label: spi.labels[id] }));
     const ss = cfg.pins.D10;
-    if (ss && !['output', 'led'].includes(ss.role)) issues.push({ level: 'error', pins: ['D10'], message: t('issue.spiSS') });
+    const ssByComponent = uses.some((u) => u.pin === 'D10' && u.owner !== 'D10');
+    if ((ss && !['output', 'led'].includes(ss.role)) || ssByComponent) err(['D10'], t('issue.spiSS'));
   }
 
   // Timer conflicts between libraries and analogWrite().
-  const pwmOn = (timer) => used.filter(([id, p]) => p.role === 'pwm' && PIN_BY_ID[id].timer === timer).map(([id]) => id);
+  const pwmPins = [
+    ...used.filter(([, p]) => p.role === 'pwm').map(([id]) => id),
+    ...cfg.components.flatMap((c) => COMPONENTS[c.type].pins.filter((x) => x.needs === 'pwm').map((x) => c.pins[x.key]).filter(Boolean)),
+  ];
+  const pwmOn = (timer) => pwmPins.filter((id) => PIN_BY_ID[id].timer === timer);
   if (used.some(([, p]) => p.role === 'servo')) {
     const hit = pwmOn(1);
-    if (hit.length) issues.push({ level: 'warning', pins: hit, message: t('issue.servoTimer', { pins: hit.join(', ') }) });
+    if (hit.length) warn(hit, t('issue.servoTimer', { pins: hit.join(', ') }));
   }
   const buzzers = used.filter(([, p]) => p.role === 'buzzer').map(([id]) => id);
   if (buzzers.length) {
     const hit = pwmOn(2);
-    if (hit.length) issues.push({ level: 'warning', pins: hit, message: t('issue.toneTimer', { pins: hit.join(', ') }) });
+    if (hit.length) warn(hit, t('issue.toneTimer', { pins: hit.join(', ') }));
   }
-  if (buzzers.length > 1) issues.push({ level: 'warning', pins: buzzers, message: t('issue.tooManyBuzzers') });
+  if (buzzers.length > 1) warn(buzzers, t('issue.tooManyBuzzers'));
 
   const d13 = cfg.pins.D13;
-  if (d13 && !['led', 'output'].includes(d13.role)) issues.push({ level: 'warning', pins: ['D13'], message: t('issue.ledBuiltin') });
+  const d13Component = uses.some((u) => u.pin === 'D13' && u.owner !== 'D13');
+  if ((d13 && !['led', 'output'].includes(d13.role)) || d13Component) warn(['D13'], t('issue.ledBuiltin'));
 
   return issues;
 }
@@ -265,6 +383,14 @@ export function generate(cfg) {
   if (has('servo')) H.push('#include <Servo.h>');
   if (cfg.i2c.enabled) H.push('#include <Wire.h>');
   if (cfg.spi.enabled) H.push('#include <SPI.h>');
+  const comps = cfg.components.map((c) => ({ c, def: COMPONENTS[c.type] }));
+  for (const inc of new Set(comps.flatMap(({ def }) => def.includes ?? []))) H.push(`#include <${inc}>`);
+  const helpers = [...new Set(comps.map(({ def }) => def.helper).filter(Boolean))];
+  if (helpers.length) {
+    H.push('', '// Helper types for components');
+    for (const name of helpers) H.push(HELPERS[name].header, '');
+    H.pop();
+  }
 
   const consts = pins.filter(([, p]) => p.role !== 'servo');
   if (consts.length) {
@@ -291,6 +417,14 @@ export function generate(cfg) {
     }
   }
 
+  if (comps.length) {
+    H.push('', '// Components');
+    for (const { c, def } of comps) {
+      const where = def.bus === 'i2c' ? 'I2C' : def.pins.map((x) => `${x.label} ${c.pins[x.key] ?? '?'}`).join(', ');
+      H.push(pad(def.declare(c), 40) + `// ${def.name}: ${where}`);
+    }
+  }
+
   const irqs = pins.filter(([, p]) => p.role === 'interrupt');
   if (irqs.length) {
     H.push('', '// Interrupt handlers: write these functions in your sketch.', '// Keep them short, and mark variables they change as volatile.');
@@ -308,6 +442,11 @@ export function generate(cfg) {
   );
   if (servos.length) {
     for (const [, p] of servos) C.push(`Servo ${p.name};`);
+    C.push('');
+  }
+  for (const name of helpers) if (HELPERS[name].source) C.push(HELPERS[name].source, '');
+  if (comps.length) {
+    for (const { c, def } of comps) C.push(def.define(c, (key) => (c.pins[key] ? pinExpr(c.pins[key]) : '0')));
     C.push('');
   }
   C.push('void stfkartBegin() {');
@@ -349,6 +488,7 @@ export function generate(cfg) {
         break;
     }
   }
+  for (const { c, def } of comps) body.push(...def.begin(c));
   // SPI.begin() last: it reconfigures D10 as an output, after any pinMode above.
   if (cfg.spi.enabled) body.push('SPI.begin();');
   for (const line of body) C.push(`  ${line}`);
@@ -394,4 +534,22 @@ export function missingHandlers(cfg, sources) {
     .filter((p) => p.role === 'interrupt' && p.handler)
     .map((p) => p.handler)
     .filter((fn) => !new RegExp(`\\bvoid\\s+${fn}\\s*\\(\\s*(void)?\\s*\\)\\s*\\{`).test(all));
+}
+
+// Everything the Pins tab puts into the code, for autocomplete and hover:
+// [{ name, kind: 'pin' | 'helper' | 'component', detail, usage: [...] }]
+export function codeSymbols(cfg) {
+  const out = [];
+  for (const [pinId, p] of Object.entries(cfg.pins)) {
+    if (!p.name) continue;
+    const detail = `${t(`role.${p.role}`)} on ${pinId}`;
+    namesForPin(p).forEach((name, i) => out.push({ name, kind: i === 0 ? 'pin' : 'helper', detail, usage: usageFor(p) }));
+  }
+  for (const c of cfg.components) {
+    if (!c.name) continue;
+    const def = COMPONENTS[c.type];
+    const where = def.bus === 'i2c' ? 'I2C' : Object.values(c.pins).join(', ');
+    out.push({ name: c.name, kind: 'component', detail: `${def.name} on ${where}`, usage: def.usage(c) });
+  }
+  return out;
 }

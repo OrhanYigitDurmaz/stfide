@@ -107,6 +107,24 @@ const en = {
   'issue.toneTimer': 'tone() uses Timer2, so analogWrite() on {pins} will not work.',
   'issue.tooManyBuzzers': 'Only one buzzer can play tone() at a time.',
   'issue.ledBuiltin': 'D13 also drives the on-board LED, so it will light up too.',
+  'issue.pinShared': '{pin} is used more than once: {users}.',
+  'issue.componentNameMissing': 'Give the {component} a name so you can use it in code.',
+  'issue.componentPinMissing': '{name}: choose a pin for {label}.',
+  'issue.componentPinNeeds': '{name}: {label} on {pin} needs {need}.',
+  'issue.needsI2c': '{name} talks over I2C. Turn on I2C under Communication.',
+  'need.pwm': 'a PWM pin (D3, D5, D6, D9, D10 or D11)',
+  'need.interrupt': 'an interrupt pin (D2 or D3)',
+  'need.digital': 'a digital pin',
+
+  // components
+  'components.title': 'Components',
+  'components.add': 'Add component',
+  'components.none': 'Sensors, displays and other parts with ready-to-use code.',
+  'components.remove': 'Remove',
+  'components.pick': 'Choose a component',
+  'components.cancel': 'Cancel',
+  'components.bus': 'Connects to',
+  'components.library': 'Library',
 };
 
 const tr = {};

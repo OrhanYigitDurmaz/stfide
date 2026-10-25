@@ -30,11 +30,16 @@ void loop() {
 - Verify and Upload, with errors marked in the editor, click-to-jump, and
   beginner hints for common mistakes (missing `;`, misspelled names, missing
   interrupt functions, serial port permissions on Linux).
+- **Components** on the Pins tab: ultrasonic distance sensor, DHT11/DHT22,
+  DS18B20 probe, I2C LCD, NeoPixel strip, RGB LED and relay. Adding one picks
+  free pins, bundles its library, and gives you a ready object such as
+  `distance.readCm()`, `climate.readTemperature()` or `pump.on()`.
 - Port picker that recognises Uno-compatible USB chips, and a serial monitor
   that steps aside automatically while uploading.
-- Examples: Blink, Button, Fade, AnalogRead, ServoKnob, InterruptCounter, Melody.
-- Works offline: arduino-cli, avr-gcc, avrdude and the Servo library are
-  bundled in the installer.
+- Examples: Blink, Button, Fade, AnalogRead, ServoKnob, InterruptCounter, Melody,
+  WeatherStation, RainbowStrip.
+- Works offline: arduino-cli, avr-gcc, avrdude and every library the Pins tab
+  uses are bundled in the installer.
 
 ## How the Pins tab works
 
@@ -81,7 +86,7 @@ build artifacts.
 ```
 src/main/        Electron main process: window, menus, arduino-cli, serial ports
 src/renderer/    UI: toolbar, editor, Pins tab, output, serial monitor
-src/common/      Shared by both: board definition, pin model + codegen, i18n, diagnostics
+src/common/      Shared by both: board definition, pin model + codegen, components, i18n, diagnostics
 resources/hardware/stfkart/   arduino-cli platform for STFKart (FQBN stfkart:avr:stfkart)
 examples/        Example sketches with their pin setups
 scripts/         fetch-toolchain.js
@@ -108,3 +113,10 @@ sudo usermod -aG dialout $USER   # then log out and back in
 UI strings live in `src/common/i18n.js`. Add a language by filling in a new
 dictionary (a `tr` one is already stubbed) and setting `"language"` in the
 app's `settings.json`.
+
+### Adding a component
+
+Add an entry to `COMPONENTS` in `src/common/components.js`: its pins, options,
+library (`"Name@version"` from the Arduino library index), and the code it
+generates. `npm run fetch-toolchain` bundles the library, and the tests compile
+every component automatically.

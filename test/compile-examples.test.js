@@ -54,6 +54,21 @@ test('pin names work without including stfkart_pins.h', { skip }, async () => {
   assert.doesNotMatch(r.stdout + r.stderr, /staged/);
 });
 
+test('every component compiles with its library', { skip }, async () => {
+  const { createSketch } = await import('../src/main/sketch.js');
+  const { COMPONENTS } = await import('../src/common/components.js');
+  const { addComponent, codeSymbols, emptyConfig } = await import('../src/common/pins.js');
+  let config = emptyConfig();
+  for (const type of Object.keys(COMPONENTS)) config = addComponent(config, type);
+  const sketch = createSketch(path.join(tmp, 'components'));
+  const calls = codeSymbols(config).flatMap((s) => s.usage).map((u) => `  {\n${u}\n  }`).join('\n');
+  const main = path.join(sketch.dir, sketch.main);
+  fs.writeFileSync(main, fs.readFileSync(main, 'utf8').replace('void loop() {', `void loop() {\n${calls}`));
+  saveSketch(sketch.dir, { files: [], config });
+  const r = await toolchain.compile(sketch.dir, {});
+  assert.equal(r.code, 0, `${r.stdout}\n${r.stderr}`);
+});
+
 test('a new sketch with no pins compiles', { skip }, async () => {
   const { createSketch } = await import('../src/main/sketch.js');
   const sketch = createSketch(path.join(tmp, 'book'));

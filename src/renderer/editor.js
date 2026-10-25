@@ -1,8 +1,7 @@
 // Monaco editor setup: one model per sketch file, Arduino-aware
 // autocomplete (including pin names from the Pins tab), and error markers.
 
-import { namesForPin, usageFor } from '../common/pins.js';
-import { t } from '../common/i18n.js';
+import { codeSymbols } from '../common/pins.js';
 
 let monaco = null;
 
@@ -158,29 +157,27 @@ export class Editor {
         const range = new monaco.Range(position.lineNumber, word.startColumn, position.lineNumber, word.endColumn);
         const items = [];
 
-        // Pins first: they are what beginners are looking for.
-        for (const [pinId, p] of Object.entries(this.config?.pins ?? {})) {
-          const role = t(`role.${p.role}`);
-          for (const name of namesForPin(p)) {
+        // Pins and components first: they are what beginners are looking for.
+        for (const sym of codeSymbols(this.config ?? { pins: {}, components: [] })) {
+          items.push({
+            label: sym.name,
+            kind: sym.kind === 'pin' ? K.Variable : sym.kind === 'component' ? K.Module : K.Function,
+            detail: sym.detail,
+            insertText: sym.kind === 'helper' && sym.name.endsWith('Pressed') ? `${sym.name}()` : sym.name,
+            range,
+            sortText: `0${sym.name}`,
+          });
+          if (sym.kind === 'helper') continue;
+          sym.usage.forEach((snippet, i) => {
             items.push({
-              label: name,
-              kind: name === p.name ? K.Variable : K.Function,
-              detail: `${role} on ${pinId}`,
-              insertText: name.endsWith('Pressed') && name !== p.name ? `${name}()` : name,
-              range,
-              sortText: `0${name}`,
-            });
-          }
-          usageFor(p).forEach((snippet, i) => {
-            items.push({
-              label: `${p.name}: ${snippet.split('\n')[0]}`,
-              filterText: p.name,
+              label: `${sym.name}: ${snippet.split('\n')[0]}`,
+              filterText: sym.name,
               kind: K.Snippet,
-              detail: `${role} on ${pinId}`,
+              detail: sym.detail,
               insertText: snippet.replace('\n  \n', '\n\t$0\n'),
               insertTextRules: Rule,
               range,
-              sortText: `1${p.name}${i}`,
+              sortText: `1${sym.name}${i}`,
             });
           });
         }
@@ -202,15 +199,10 @@ export class Editor {
       provideHover: (model, position) => {
         const word = model.getWordAtPosition(position);
         if (!word) return null;
-        for (const [pinId, p] of Object.entries(this.config?.pins ?? {})) {
-          if (!namesForPin(p).includes(word.word)) continue;
-          const usage = usageFor(p).map((s) => `    ${s.replace(/\n/g, '\n    ')}`).join('\n\n');
-          return {
-            contents: [
-              { value: `**${p.name}**: ${t(`role.${p.role}`)} on pin **${pinId}**` },
-              { value: usage },
-            ],
-          };
+        const sym = codeSymbols(this.config ?? { pins: {}, components: [] }).find((x) => x.name === word.word);
+        if (sym) {
+          const usage = sym.usage.map((u) => `    ${u.replace(/\n/g, '\n    ')}`).join('\n\n');
+          return { contents: [{ value: `**${sym.name}**: ${sym.detail}` }, { value: usage }] };
         }
         const api = ARDUINO_API.find(([label]) => label === word.word);
         return api ? { contents: [{ value: `**${api[0]}**` }, { value: api[2] }] } : null;

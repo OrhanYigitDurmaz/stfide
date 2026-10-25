@@ -3,8 +3,10 @@
 
 import { BOARD, HEADERS, PIN_BY_ID } from '../common/board.js';
 import {
-  BAUD_RATES, GENERATED_FILES, I2C_CLOCKS, INTERRUPT_MODES, assignRole, generate, handlerName, missingHandlers, rolesForPin, usageFor, validate,
+  BAUD_RATES, GENERATED_FILES, I2C_CLOCKS, INTERRUPT_MODES, addComponent, assignRole, freePinsFor, generate, handlerName,
+  missingHandlers, removeComponent, rolesForPin, usageFor, validate,
 } from '../common/pins.js';
+import { COMPONENTS } from '../common/components.js';
 import { t } from '../common/i18n.js';
 
 export const ROLE_COLORS = {
@@ -18,6 +20,8 @@ export const ROLE_COLORS = {
   interrupt: '#e84393',
   buzzer: '#c0a020',
 };
+
+export const COMPONENT_COLOR = '#17a2b8';
 
 const SVG = 'http://www.w3.org/2000/svg';
 const PIN = 32;
@@ -74,6 +78,8 @@ export class PinsView {
     this.selected = null;
     this.pinNodes = new Map();
     this.openGenerated = new Set();
+    this.selectedComponent = null;
+    this.picking = false;
 
     this.boardArea = h('div', { class: 'board-area' });
     this.inspector = h('aside', { class: 'inspector' });
@@ -138,9 +144,27 @@ export class PinsView {
   }
 
   select(id) {
+    // A pin that belongs to a component opens that component.
+    const cfg = this.getConfig();
+    const comp = !cfg.pins[id] && cfg.components.find((c) => Object.values(c.pins).includes(id));
+    if (comp) {
+      this.selectComponent(comp.id);
+      return;
+    }
     this.selected = id;
+    this.selectedComponent = null;
+    this.picking = false;
     this.render();
+    this.inspector.scrollTop = 0;
     this.inspector.querySelector('select[name=role]')?.focus();
+  }
+
+  selectComponent(id) {
+    this.selectedComponent = id;
+    this.selected = null;
+    this.picking = false;
+    this.render();
+    this.inspector.scrollTop = 0;
   }
 
   update(mutator) {
@@ -156,22 +180,31 @@ export class PinsView {
     const flagged = new Map();
     for (const i of issues) for (const p of i.pins) if (flagged.get(p) !== 'error') flagged.set(p, i.level);
 
+    const compPins = new Map();
+    for (const c of cfg.components) {
+      for (const { key, label } of COMPONENTS[c.type].pins) if (c.pins[key]) compPins.set(c.pins[key], { c, label });
+    }
+
     for (const [id, { g, name, title }] of this.pinNodes) {
       const p = cfg.pins[id];
+      const cp = !p && compPins.get(id);
       const claim = claimedBy(cfg, id);
-      g.classList.toggle('used', Boolean(p));
-      g.classList.toggle('claimed', !p && Boolean(claim));
-      g.classList.toggle('selected', id === this.selected);
+      g.classList.toggle('used', Boolean(p || cp));
+      g.classList.toggle('claimed', !p && !cp && Boolean(claim));
+      g.classList.toggle('selected', id === this.selected || Boolean(cp && cp.c.id === this.selectedComponent));
       g.classList.toggle('error', flagged.get(id) === 'error');
       g.classList.toggle('warning', flagged.get(id) === 'warning');
-      g.style.setProperty('--pin-color', p ? ROLE_COLORS[p.role] : '');
-      name.textContent = p ? p.name : claim ?? '';
-      name.style.fill = p ? '#fff' : '#b9aef0';
-      title.textContent = p ? `${id}: ${p.name} (${t(`role.${p.role}`)})` : claim ? `${id}: ${claim}` : id;
+      g.style.setProperty('--pin-color', p ? ROLE_COLORS[p.role] : cp ? COMPONENT_COLOR : '');
+      name.textContent = p ? p.name : cp ? `${cp.c.name} ${cp.label}` : claim ?? '';
+      name.style.fill = p || cp ? '#fff' : '#b9aef0';
+      title.textContent = p ? `${id}: ${p.name} (${t(`role.${p.role}`)})`
+        : cp ? `${id}: ${cp.c.name} ${cp.label} (${COMPONENTS[cp.c.type].name})`
+          : claim ? `${id}: ${claim}` : id;
     }
 
     this.inspector.replaceChildren(
-      this.renderPinSection(cfg),
+      this.selectedComponent ? this.renderComponentEditor(cfg) : this.renderPinSection(cfg),
+      this.renderComponents(cfg),
       this.renderBuses(cfg),
       this.renderIssues(issues),
       this.renderGenerated(cfg),
@@ -246,6 +279,80 @@ export class PinsView {
     if (usage.length) {
       section.append(h('h3', {}, t('pins.usage')), ...usage.map((s) => h('pre', { class: 'snippet' }, s)));
     }
+    return section;
+  }
+
+  renderComponents(cfg) {
+    const section = h('section', {}, h('h3', {}, t('components.title')));
+    if (this.picking) {
+      section.append(
+        h('div', { class: 'picker' }, Object.entries(COMPONENTS).map(([type, def]) => h('button', {
+          class: 'card',
+          onclick: () => {
+            const next = addComponent(this.getConfig(), type);
+            this.setConfig(next);
+            this.selectComponent(next.components[next.components.length - 1].id);
+          },
+        }, h('strong', {}, def.name), h('small', {}, def.description)))),
+        h('button', { class: 'link', onclick: () => { this.picking = false; this.render(); } }, t('components.cancel')),
+      );
+      return section;
+    }
+    if (!cfg.components.length) section.append(h('p', { class: 'empty' }, t('components.none')));
+    section.append(h('ul', { class: 'comp-list' }, cfg.components.map((c) => h('li', {
+      class: c.id === this.selectedComponent ? 'active' : '',
+      onclick: () => this.selectComponent(c.id),
+    }, h('strong', {}, c.name || '?'), h('small', {}, COMPONENTS[c.type].name)))));
+    section.append(h('button', { class: 'add-comp', onclick: () => { this.picking = true; this.render(); } }, `+ ${t('components.add')}`));
+    return section;
+  }
+
+  renderComponentEditor(cfg) {
+    const c = cfg.components.find((x) => x.id === this.selectedComponent);
+    if (!c) {
+      this.selectedComponent = null;
+      return this.renderPinSection(cfg);
+    }
+    const def = COMPONENTS[c.type];
+    const edit = (fn) => this.update((next) => fn(next.components.find((x) => x.id === c.id)));
+    const section = h('section', {}, h('h2', {}, def.name), h('p', { class: 'empty' }, def.description));
+
+    section.append(h('label', { class: 'field' }, h('span', {}, t('pins.name')),
+      h('input', { value: c.name, spellcheck: 'false', onchange: (e) => edit((x) => { x.name = e.target.value.trim(); }) })));
+
+    for (const { key, label, needs } of def.pins) {
+      const choices = [...new Set([c.pins[key], ...freePinsFor(cfg, needs, c.id)].filter(Boolean))];
+      section.append(h('label', { class: 'field' }, h('span', {}, `${label} pin`),
+        h('select', { onchange: (e) => edit((x) => { x.pins[key] = e.target.value; }) },
+          c.pins[key] ? null : h('option', { value: '', selected: true }, '—'),
+          choices.map((id) => h('option', { value: id, selected: id === c.pins[key] }, id)))));
+    }
+    if (def.bus === 'i2c') {
+      section.append(h('div', { class: 'field' }, h('span', {}, t('components.bus')), h('span', {}, 'I2C: A4 SDA · A5 SCL')));
+    }
+    for (const o of def.options ?? []) {
+      const input = o.type === 'select'
+        ? h('select', { onchange: (e) => edit((x) => { x.options[o.key] = e.target.value; }) },
+          o.choices.map((v) => h('option', { value: v, selected: v === c.options[o.key] }, v)))
+        : h('input', {
+          type: 'number', min: o.min, max: o.max, value: c.options[o.key],
+          onchange: (e) => edit((x) => { x.options[o.key] = Number(e.target.value); }),
+        });
+      section.append(h('label', { class: 'field' }, h('span', {}, o.label), input));
+    }
+    if (def.libraries?.length) {
+      section.append(h('div', { class: 'field' }, h('span', {}, t('components.library')),
+        h('span', { class: 'lib' }, def.libraries.map((l) => l.split('@')[0]).join(', '))));
+    }
+    section.append(h('h3', {}, t('pins.usage')), ...def.usage(c).map((u) => h('pre', { class: 'snippet' }, u)));
+    section.append(h('button', {
+      class: 'danger',
+      onclick: () => {
+        this.setConfig(removeComponent(this.getConfig(), c.id));
+        this.selectedComponent = null;
+        this.render();
+      },
+    }, t('components.remove')));
     return section;
   }
 
