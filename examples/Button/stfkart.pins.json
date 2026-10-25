@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "pins": {
+    "D2": { "role": "button", "name": "startButton" },
+    "D13": { "role": "led", "name": "led", "initial": "LOW" }
+  },
+  "serial": { "enabled": false, "baud": 9600 },
+  "i2c": { "enabled": false, "clock": 100000 },
+  "spi": { "enabled": false }
+}

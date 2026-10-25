@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "pins": {},
+  "serial": { "enabled": false, "baud": 9600 },
+  "i2c": { "enabled": false, "clock": 100000 },
+  "spi": { "enabled": false },
+  "components": [
+    { "id": "c1", "type": "neopixel", "name": "strip", "pins": { "data": "D6" }, "options": { "count": 8 } }
+  ]
+}

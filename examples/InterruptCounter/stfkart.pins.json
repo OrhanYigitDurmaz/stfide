@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "pins": {
+    "D2": { "role": "interrupt", "name": "counterButton", "mode": "FALLING", "pullup": true, "handler": "onCounterButton" }
+  },
+  "serial": { "enabled": true, "baud": 9600 },
+  "i2c": { "enabled": false, "clock": 100000 },
+  "spi": { "enabled": false }
+}

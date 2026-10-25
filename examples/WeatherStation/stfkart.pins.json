@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "pins": {},
+  "serial": { "enabled": false, "baud": 9600 },
+  "i2c": { "enabled": true, "clock": 100000 },
+  "spi": { "enabled": false },
+  "components": [
+    { "id": "c1", "type": "dht", "name": "climate", "pins": { "data": "D2" }, "options": { "model": "DHT11" } },
+    { "id": "c2", "type": "lcd", "name": "lcd", "pins": {}, "options": { "address": "0x27", "size": "16x2" } }
+  ]
+}

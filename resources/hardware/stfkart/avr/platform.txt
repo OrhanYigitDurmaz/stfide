@@ -1,0 +1,7 @@
+# STFKart platform for arduino-cli.
+# It has no compile recipes of its own: boards.txt points at the core,
+# variant and tools of the official arduino:avr platform, so arduino-cli
+# uses arduino:avr's platform.txt for building and uploading.
+
+name=STFKart Boards
+version=0.1.0

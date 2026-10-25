@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "pins": {
+    "D9": { "role": "servo", "name": "arm", "angle": 90 },
+    "A0": { "role": "analog", "name": "knob" }
+  },
+  "serial": { "enabled": false, "baud": 9600 },
+  "i2c": { "enabled": false, "clock": 100000 },
+  "spi": { "enabled": false }
+}

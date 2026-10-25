@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "pins": { "A0": { "role": "analog", "name": "knob" } },
+  "serial": { "enabled": true, "baud": 9600 },
+  "i2c": { "enabled": false, "clock": 100000 },
+  "spi": { "enabled": false }
+}

@@ -1,7 +1,4 @@
-node_modules
-.browser_modules
-lib
+node_modules/
+dist/
+resources/toolchain/
 *.log
-generated
-*-app/*
-!*-app/package.json
