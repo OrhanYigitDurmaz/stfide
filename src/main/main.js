@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Toolchain } from './toolchain.js';
+import { setLanguage, t } from '../common/i18n.js';
 import { Monitor, listPorts } from './serial.js';
 import {
   copySketch, createSketch, isValidSketchName, listExamples, loadSketch, resolveSketchDir, saveSketch, uniqueSketchDir,
@@ -41,8 +42,26 @@ function writeSettings(patch) {
   return next;
 }
 
+const defaultSketchbook = () => path.join(app.getPath('documents'), 'STFKart');
+
 function sketchbookDir() {
-  return path.join(app.getPath('documents'), 'STFKart');
+  const custom = readSettings().sketchbook;
+  return custom && path.isAbsolute(custom) ? custom : defaultSketchbook();
+}
+
+// Applies a settings change from the Settings window. A new sketchbook
+// folder must be usable before it is saved.
+function changeSettings(patch) {
+  if (patch.sketchbook) {
+    fs.mkdirSync(patch.sketchbook, { recursive: true });
+    fs.accessSync(patch.sketchbook, fs.constants.W_OK);
+  }
+  const next = writeSettings(patch);
+  if ('language' in patch) {
+    setLanguage(next.language || 'en');
+    buildMenu();
+  }
+  return next;
 }
 
 function send(channel, ...args) {
@@ -80,10 +99,10 @@ function createWindow() {
     if (!dirty) return;
     const choice = dialog.showMessageBoxSync(win, {
       type: 'question',
-      buttons: ['Save', "Don't save", 'Cancel'],
+      buttons: [t('dialog.save'), t('dialog.dontSave'), t('dialog.cancel')],
       defaultId: 0,
       cancelId: 2,
-      message: 'Save changes to your sketch before closing?',
+      message: t('dialog.saveBeforeClose'),
     });
     if (choice === 2) e.preventDefault();
     else if (choice === 0) {
@@ -100,40 +119,41 @@ function buildMenu() {
   const menu = (action) => () => send('menu', action);
   const template = [
     {
-      label: 'File',
+      label: t('menu.file'),
       submenu: [
-        { label: 'New Sketch', accelerator: 'CmdOrCtrl+N', click: menu('new') },
-        { label: 'Open…', accelerator: 'CmdOrCtrl+O', click: menu('open') },
-        { label: 'Save', accelerator: 'CmdOrCtrl+S', click: menu('save') },
-        { label: 'Save As…', accelerator: 'CmdOrCtrl+Shift+S', click: menu('saveAs') },
+        { label: t('menu.newSketch'), accelerator: 'CmdOrCtrl+N', click: menu('new') },
+        { label: t('menu.open'), accelerator: 'CmdOrCtrl+O', click: menu('open') },
+        { label: t('menu.save'), accelerator: 'CmdOrCtrl+S', click: menu('save') },
+        { label: t('menu.saveAs'), accelerator: 'CmdOrCtrl+Shift+S', click: menu('saveAs') },
         { type: 'separator' },
-        { label: 'New Tab…', accelerator: 'CmdOrCtrl+Shift+N', click: menu('newTab') },
+        { label: t('menu.newTab'), accelerator: 'CmdOrCtrl+Shift+N', click: menu('newTab') },
         { type: 'separator' },
-        { label: 'Open Sketchbook Folder', click: () => shell.openPath(sketchbookDir()) },
+        { label: t('menu.openSketchbook'), click: () => shell.openPath(sketchbookDir()) },
+        { label: t('menu.settings'), accelerator: 'CmdOrCtrl+,', click: menu('settings') },
         { type: 'separator' },
         { role: 'quit' },
       ],
     },
     { role: 'editMenu' },
     {
-      label: 'Sketch',
+      label: t('menu.sketch'),
       submenu: [
-        { label: 'Verify', accelerator: 'CmdOrCtrl+R', click: menu('verify') },
-        { label: 'Upload', accelerator: 'CmdOrCtrl+U', click: menu('upload') },
+        { label: t('menu.verify'), accelerator: 'CmdOrCtrl+R', click: menu('verify') },
+        { label: t('menu.upload'), accelerator: 'CmdOrCtrl+U', click: menu('upload') },
         { type: 'separator' },
-        { label: 'Show Pins', accelerator: 'CmdOrCtrl+P', click: menu('pins') },
-        { label: 'Show Code', accelerator: 'CmdOrCtrl+E', click: menu('code') },
-        { label: 'Show Sketch Folder', click: menu('showFolder') },
+        { label: t('menu.showCircuit'), accelerator: 'CmdOrCtrl+P', click: menu('pins') },
+        { label: t('menu.showCode'), accelerator: 'CmdOrCtrl+E', click: menu('code') },
+        { label: t('menu.showFolder'), click: menu('showFolder') },
       ],
     },
     {
-      label: 'Tools',
+      label: t('menu.tools'),
       submenu: [
-        { label: 'Serial Monitor', accelerator: 'CmdOrCtrl+Shift+M', click: menu('monitor') },
+        { label: t('menu.serialMonitor'), accelerator: 'CmdOrCtrl+Shift+M', click: menu('monitor') },
       ],
     },
     {
-      label: 'View',
+      label: t('menu.view'),
       submenu: [
         { role: 'zoomIn' }, { role: 'zoomOut' }, { role: 'resetZoom' }, { type: 'separator' },
         { role: 'togglefullscreen' },
@@ -141,10 +161,10 @@ function buildMenu() {
       ],
     },
     {
-      label: 'Help',
+      label: t('menu.help'),
       submenu: [
-        { label: 'Arduino Language Reference', click: () => shell.openExternal('https://docs.arduino.cc/language-reference/') },
-        { label: 'About STFIDE', click: () => dialog.showMessageBox(win, { message: `STFIDE ${app.getVersion()}`, detail: 'An Arduino-style IDE for the STFKart board.' }) },
+        { label: t('menu.reference'), click: () => shell.openExternal('https://docs.arduino.cc/language-reference/') },
+        { label: t('menu.about'), click: () => dialog.showMessageBox(win, { message: `STFIDE ${app.getVersion()}`, detail: t('menu.aboutDetail') }) },
       ],
     },
   ];
@@ -171,9 +191,17 @@ function registerIpc() {
     platform: process.platform,
     version: app.getVersion(),
     sketchbook: sketchbookDir(),
+    defaultSketchbook: defaultSketchbook(),
     settings: readSettings(),
   }));
-  handle('app:settings', (patch) => writeSettings(patch));
+  handle('app:settings', (patch) => changeSettings(patch));
+  handle('app:pick-folder', async () => {
+    const r = await dialog.showOpenDialog(win, {
+      defaultPath: sketchbookDir(),
+      properties: ['openDirectory', 'createDirectory'],
+    });
+    return r.canceled ? null : r.filePaths[0];
+  });
   handle('app:set-dirty', (value) => {
     dirty = Boolean(value);
   });
@@ -196,7 +224,7 @@ function registerIpc() {
   handle('sketch:new', () => rememberSketch(createSketch(sketchbookDir())));
   handle('sketch:open', async () => {
     const r = await dialog.showOpenDialog(win, {
-      title: 'Open sketch',
+      title: t('dialog.openSketch'),
       defaultPath: sketchbookDir(),
       properties: ['openFile'],
       filters: [{ name: 'Sketches', extensions: ['ino'] }],
@@ -210,7 +238,7 @@ function registerIpc() {
   });
   handle('sketch:saveAs', async (dir, data) => {
     const r = await dialog.showSaveDialog(win, {
-      title: 'Save sketch as',
+      title: t('dialog.saveSketchAs'),
       defaultPath: path.join(sketchbookDir(), path.basename(dir)),
       buttonLabel: 'Save',
       properties: ['createDirectory', 'showOverwriteConfirmation'],
@@ -281,6 +309,7 @@ app.whenReady().then(() => {
   });
 
   registerIpc();
+  setLanguage(readSettings().language || 'en');
   buildMenu();
   createWindow();
   setInterval(pollPorts, 1500);

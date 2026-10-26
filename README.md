@@ -40,6 +40,8 @@ void loop() {
   I2C LCD, NeoPixel ring, RGB LED and relay. Wiring one bundles its library
   and gives you a ready object such as `distance.readCm()`,
   `climate.readTemperature()` or `pump.on()`.
+- **Settings** (gear button, or File › Settings…, Ctrl+,): language (English or
+  Türkçe), editor font size, and the sketchbook folder where new sketches go.
 - Port picker that recognises Uno-compatible USB chips, and a serial monitor
   that steps aside automatically while uploading.
 - Examples: Blink, Button, Fade, AnalogRead, ServoKnob, InterruptCounter, Melody,

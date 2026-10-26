@@ -2,10 +2,10 @@
 // and serial monitor together.
 
 import { BOARD } from '../common/board.js';
-import { setLanguage, t } from '../common/i18n.js';
+import { LANGUAGE_NAMES, getLanguage, setLanguage, t } from '../common/i18n.js';
 import { GENERATED_FILES, BAUD_RATES, emptyConfig, generate, hasErrors, validate } from '../common/pins.js';
 import { friendlyHints, parseDiagnostics, parseSize } from '../common/diagnostics.js';
-import { Editor, loadMonaco } from './editor.js';
+import { DEFAULT_FONT_SIZE, Editor, FONT_SIZES, loadMonaco } from './editor.js';
 import { PinsView } from './pins-view.js';
 
 const api = window.stfide;
@@ -18,6 +18,7 @@ const ICONS = {
   open: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h6l2 2h10v11H3z"/></svg>',
   save: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/></svg>',
   monitor: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/></svg>',
+  settings: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
 };
 
 const state = {
@@ -45,12 +46,13 @@ async function init() {
   state.info = await api.app.info();
   setLanguage(state.info.settings.language || 'en');
   applyI18n();
-  for (const [id, key] of [['btn-verify', 'verify'], ['btn-upload', 'upload'], ['btn-new', 'new'], ['btn-open', 'open'], ['btn-save', 'save'], ['btn-monitor', 'monitor']]) {
+  for (const [id, key] of [['btn-verify', 'verify'], ['btn-upload', 'upload'], ['btn-new', 'new'], ['btn-open', 'open'], ['btn-save', 'save'], ['btn-monitor', 'monitor'], ['btn-settings', 'settings']]) {
     $(`#${id}`).innerHTML = ICONS[key];
   }
 
   await loadMonaco();
   editor = new Editor($('#editor'), {
+    fontSize: state.info.settings.fontSize || DEFAULT_FONT_SIZE,
     onChange: (name) => {
       const f = state.files.find((x) => x.name === name);
       if (f && !f.generated && !f.dirty) {
@@ -208,8 +210,8 @@ async function saveAs() {
 async function confirmDiscard() {
   if (!isDirty()) return true;
   const choice = await modal({
-    message: 'Save changes to your sketch first?',
-    buttons: [['cancel', 'Cancel'], ['discard', "Don't save"], ['save', 'Save']],
+    message: t('dialog.saveFirst'),
+    buttons: [['cancel', t('dialog.cancel')], ['discard', t('dialog.dontSave')], ['save', t('dialog.save')]],
   });
   if (choice === 'save') return save();
   return choice === 'discard';
@@ -217,13 +219,13 @@ async function confirmDiscard() {
 
 async function newTab() {
   const name = await modal({
-    message: 'Name for the new file (e.g. helpers.h or motors). Without an extension it becomes a .ino tab.',
+    message: t('dialog.newTab'),
     input: '',
-    buttons: [['cancel', 'Cancel'], ['ok', 'Create']],
+    buttons: [['cancel', t('dialog.cancel')], ['ok', t('dialog.create')]],
     validate: (v) => {
       const n = normalizeTabName(v);
-      if (!/^[A-Za-z_][A-Za-z0-9_]*\.(ino|h|cpp|c)$/.test(n)) return 'Use letters, digits and _, ending in .ino, .h, .cpp or .c.';
-      if (state.files.some((f) => f.name.toLowerCase() === n.toLowerCase())) return 'A file with that name already exists.';
+      if (!/^[A-Za-z_][A-Za-z0-9_]*\.(ino|h|cpp|c)$/.test(n)) return t('dialog.badTabName');
+      if (state.files.some((f) => f.name.toLowerCase() === n.toLowerCase())) return t('dialog.tabExists');
       return '';
     },
   });
@@ -265,7 +267,7 @@ function renderTabs() {
   const add = document.createElement('button');
   add.className = 'add';
   add.textContent = '+';
-  add.title = 'New tab';
+  add.title = t('tabs.new');
   add.onclick = newTab;
   bar.append(add);
 }
@@ -462,12 +464,12 @@ async function refreshPorts(ports) {
     state.port = keep.path;
     select.value = keep.path;
   }
-  $('#status-board').textContent = state.port ? `${BOARD.name} on ${state.port}` : `${BOARD.name} (not connected)`;
+  renderBoardStatus();
 }
 
 function bindMonitor() {
   const baud = $('#mon-baud');
-  for (const b of BAUD_RATES) baud.append(new Option(`${b} baud`, b));
+  for (const b of BAUD_RATES) baud.append(new Option(t('monitor.baud', { baud: b }), b));
   baud.value = state.info.settings.baud || 9600;
   const ending = $('#mon-ending');
   for (const [v, k] of [['', 'none'], ['\n', 'nl'], ['\r', 'cr'], ['\r\n', 'both']]) ending.append(new Option(t(`monitor.lineEnding.${k}`), v));
@@ -602,6 +604,7 @@ const actions = {
   code: () => showView('code'),
   monitor: () => ($('#monitor').hidden ? connectMonitor() : showPanel('output')),
   showFolder: () => api.sketch.showFolder(state.sketch.dir),
+  settings: () => openSettings(),
 };
 
 function bindToolbar() {
@@ -611,13 +614,141 @@ function bindToolbar() {
   $('#btn-open').onclick = actions.open;
   $('#btn-save').onclick = actions.save;
   $('#btn-monitor').onclick = actions.monitor;
+  $('#btn-settings').onclick = actions.settings;
   $('#tab-code').onclick = actions.code;
   $('#tab-pins').onclick = actions.pins;
   $('#port-select').onchange = (e) => {
     state.port = e.target.value || null;
     api.app.settings({ port: state.port });
-    $('#status-board').textContent = state.port ? `${BOARD.name} on ${state.port}` : BOARD.name;
+    renderBoardStatus();
   };
+}
+
+function renderBoardStatus() {
+  $('#status-board').textContent = state.port
+    ? t('status.boardOn', { board: BOARD.name, port: state.port })
+    : t('status.notConnected', { board: BOARD.name });
+}
+
+// ---------------------------------------------------------------------------
+// settings window
+
+async function openSettings() {
+  const settings = state.info.settings;
+  const before = {
+    language: getLanguage(),
+    fontSize: settings.fontSize || DEFAULT_FONT_SIZE,
+    sketchbook: state.info.sketchbook,
+  };
+  const root = $('#modal');
+  const field = (label, control, note) => {
+    const l = document.createElement('label');
+    l.className = 'setting';
+    const span = document.createElement('span');
+    span.textContent = label;
+    l.append(span, control);
+    if (note) {
+      const small = document.createElement('small');
+      small.textContent = note;
+      l.append(small);
+    }
+    return l;
+  };
+
+  const language = document.createElement('select');
+  language.name = 'language';
+  for (const [code, name] of Object.entries(LANGUAGE_NAMES)) language.append(new Option(name, code));
+  language.value = before.language;
+
+  const fontSize = document.createElement('select');
+  fontSize.name = 'fontSize';
+  for (const size of FONT_SIZES) fontSize.append(new Option(`${size} px`, size));
+  fontSize.value = before.fontSize;
+  fontSize.onchange = () => editor.setFontSize(Number(fontSize.value)); // live preview
+
+  let folder = before.sketchbook;
+  const folderText = document.createElement('input');
+  folderText.name = 'sketchbook';
+  folderText.readOnly = true;
+  folderText.value = folder;
+  const browse = document.createElement('button');
+  browse.type = 'button';
+  browse.textContent = t('settings.browse');
+  browse.onclick = async () => {
+    const picked = await api.app.pickFolder();
+    if (picked) folderText.value = folder = picked;
+  };
+  const reset = document.createElement('button');
+  reset.type = 'button';
+  reset.className = 'link';
+  reset.textContent = t('settings.default');
+  reset.onclick = () => {
+    folderText.value = folder = state.info.defaultSketchbook;
+  };
+  const folderRow = document.createElement('div');
+  folderRow.className = 'folder-row';
+  folderRow.append(folderText, browse);
+
+  const form = document.createElement('form');
+  form.className = 'settings';
+  const title = document.createElement('h2');
+  title.textContent = t('settings.title');
+  const error = document.createElement('div');
+  error.className = 'error';
+  const buttons = document.createElement('div');
+  buttons.className = 'buttons';
+  const cancel = document.createElement('button');
+  cancel.type = 'button';
+  cancel.textContent = t('dialog.cancel');
+  const ok = document.createElement('button');
+  ok.type = 'submit';
+  ok.textContent = t('dialog.save');
+  buttons.append(cancel, ok);
+  const sketchbookField = field(t('settings.sketchbook'), folderRow, t('settings.sketchbookHint'));
+  sketchbookField.append(reset);
+  form.append(
+    title,
+    field(t('settings.language'), language, t('settings.languageNote')),
+    field(t('settings.fontSize'), fontSize),
+    sketchbookField,
+    error,
+    buttons,
+  );
+
+  const close = () => {
+    root.hidden = true;
+    root.replaceChildren();
+  };
+  cancel.onclick = () => {
+    editor.setFontSize(before.fontSize);
+    close();
+  };
+  form.onkeydown = (e) => {
+    if (e.key === 'Escape') cancel.onclick();
+  };
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const patch = { fontSize: Number(fontSize.value), language: language.value };
+    const custom = folder === state.info.defaultSketchbook ? '' : folder;
+    if (folder !== before.sketchbook) patch.sketchbook = custom;
+    try {
+      state.info.settings = await api.app.settings(patch);
+    } catch (err) {
+      error.textContent = t('settings.badFolder', { error: cleanError(err) });
+      return;
+    }
+    state.info.sketchbook = folder;
+    close();
+    // Switching language redraws everything, so reload once the sketch is safe.
+    if (patch.language !== before.language && (await confirmDiscard())) {
+      api.app.setDirty(false);
+      window.location.reload();
+    }
+  };
+
+  root.replaceChildren(form);
+  root.hidden = false;
+  language.focus();
 }
 
 function bindMenu() {

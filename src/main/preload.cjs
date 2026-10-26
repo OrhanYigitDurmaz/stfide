@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld('stfide', {
   app: {
     info: invoke('app:info'),
     settings: invoke('app:settings'),
+    pickFolder: invoke('app:pick-folder'),
     setDirty: invoke('app:set-dirty'),
     quit: invoke('app:quit'),
     onSaveAndClose: on('app:save-and-close'),

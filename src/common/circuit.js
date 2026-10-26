@@ -12,7 +12,7 @@
 
 import { BOARD_GEOMETRY, PIN_BY_ID, isSignalPin } from './board.js';
 import { COMPONENTS } from './components.js';
-import { BOARD_PART, PARTS, defaultOptions } from './parts.js';
+import { BOARD_PART, PARTS, defaultOptions, partHint } from './parts.js';
 import { t } from './i18n.js';
 
 export function emptyCircuit() {
@@ -109,7 +109,7 @@ export function deriveFromCircuit(circuit) {
         for (const pin of boardPinsOf(netOf, part.id, sig)) if (!found.includes(pin)) found.push(pin);
       }
       if (!found.length) {
-        warn([], t('circuit.notWired', { name, hint: def.hint ?? '' }));
+        warn([], t('circuit.notWired', { name, hint: partHint(part.type) }));
         continue;
       }
       if (found.length > 1) err(found, t('circuit.shorted', { name, pins: found.join(', ') }));
