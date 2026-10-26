@@ -11,6 +11,8 @@
 // options: shown in the inspector. `attr` also sets that attribute on the
 // drawing; `role`/`component` options are passed to the generated code.
 
+import { tx } from './i18n.js';
+
 export const PARTS = {
   led: {
     label: 'LED',
@@ -158,3 +160,8 @@ export function defaultOptions(type) {
   for (const o of PARTS[type].options ?? []) out[o.key] = o.default;
   return out;
 }
+
+// Translated display text; the English above is the fallback.
+export const partLabel = (type) => tx(`part.${type}`, PARTS[type].label);
+export const partHint = (type) => tx(`hint.${type}`, PARTS[type].hint ?? '');
+export const optionLabel = (o) => tx(`option.${o.key}`, o.label);

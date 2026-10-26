@@ -8,7 +8,7 @@ import {
   missingHandlers, resolve, rolesForPin, usageFor, validate,
 } from '../common/pins.js';
 import { COMPONENTS } from '../common/components.js';
-import { BOARD_PART, PARTS } from '../common/parts.js';
+import { BOARD_PART, PARTS, optionLabel, partHint, partLabel } from '../common/parts.js';
 import { deriveFromCircuit } from '../common/circuit.js';
 import { t } from '../common/i18n.js';
 import { CircuitCanvas, WIRE_COLORS } from './circuit-canvas.js';
@@ -129,9 +129,9 @@ export class PinsView {
       for (const type of types) {
         this.palette.append(h('button', {
           class: 'palette-item',
-          title: PARTS[type].hint ?? '',
+          title: partHint(type),
           onclick: () => this.canvas.add(type, this.takenNames()),
-        }, PARTS[type].label));
+        }, partLabel(type)));
       }
     }
   }
@@ -219,8 +219,8 @@ export class PinsView {
     const part = cfg.circuit.parts.find((p) => p.id === id);
     const def = PARTS[part.type];
     const edit = (fn) => this.update((next) => fn(next.circuit.parts.find((p) => p.id === id)));
-    const section = h('section', {}, h('h2', {}, def.label));
-    if (def.hint) section.append(h('p', { class: 'empty' }, def.hint));
+    const section = h('section', {}, h('h2', {}, partLabel(part.type)));
+    if (def.hint) section.append(h('p', { class: 'empty' }, partHint(part.type)));
 
     if (def.bind) {
       section.append(h('label', { class: 'field' }, h('span', {}, t('pins.name')),
@@ -235,7 +235,7 @@ export class PinsView {
           type: 'number', min: o.min, max: o.max, value,
           onchange: (e) => edit((p) => { p.options[o.key] = Number(e.target.value); }),
         });
-      section.append(h('label', { class: 'field' }, h('span', {}, o.label), input));
+      section.append(h('label', { class: 'field' }, h('span', {}, optionLabel(o)), input));
     }
 
     // What it ended up connected to, and how to use it in code.

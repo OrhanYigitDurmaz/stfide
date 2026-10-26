@@ -5,6 +5,9 @@ import { codeSymbols } from '../common/pins.js';
 
 let monaco = null;
 
+export const DEFAULT_FONT_SIZE = 14;
+export const FONT_SIZES = [10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24, 28];
+
 export function loadMonaco() {
   return new Promise((resolve) => {
     window.require.config({ paths: { vs: '../../node_modules/monaco-editor/min/vs' } });
@@ -51,13 +54,13 @@ const CONSTANTS = ['HIGH', 'LOW', 'INPUT', 'OUTPUT', 'INPUT_PULLUP', 'LED_BUILTI
   'A0', 'A1', 'A2', 'A3', 'A4', 'A5', 'RISING', 'FALLING', 'CHANGE'];
 
 export class Editor {
-  constructor(container, { onChange, onCursor }) {
+  constructor(container, { onChange, onCursor, fontSize = DEFAULT_FONT_SIZE }) {
     this.models = new Map();
     this.config = null;
     this.editor = monaco.editor.create(container, {
       theme: 'vs-dark',
       automaticLayout: true,
-      fontSize: 14,
+      fontSize,
       fontFamily: 'JetBrains Mono, Cascadia Code, DejaVu Sans Mono, Consolas, monospace',
       minimap: { enabled: false },
       scrollBeyondLastLine: false,
@@ -70,6 +73,10 @@ export class Editor {
     this.editor.onDidChangeCursorPosition((e) => onCursor(e.position));
     this.onChange = onChange;
     this.registerLanguageFeatures();
+  }
+
+  setFontSize(size) {
+    this.editor.updateOptions({ fontSize: size });
   }
 
   setConfig(config) {

@@ -3,7 +3,7 @@
 // to bend it, click another pin to finish. Drag the background to pan,
 // scroll to zoom. Delete removes the selection, R rotates a part.
 
-import { BOARD_PART, PARTS } from '../common/parts.js';
+import { BOARD_PART, PARTS, partLabel } from '../common/parts.js';
 import { addPart, addWire, removePart, removeWire, wireColorFor } from '../common/circuit.js';
 import './elements.js';
 
@@ -105,7 +105,7 @@ export class CircuitCanvas {
       const attrs = { ...(def.attrs ?? {}) };
       for (const o of def.options ?? []) if (o.attr) attrs[o.attr] = part.options[o.key];
       this.syncWrapper(part.id, def.tag, attrs, part.x, part.y, part.rotate);
-      this.wrappers.get(part.id).title = `${part.name} (${def.label})`;
+      this.wrappers.get(part.id).title = `${part.name} (${partLabel(part.type)})`;
       keep.add(part.id);
     }
     for (const [id, w] of this.wrappers) {

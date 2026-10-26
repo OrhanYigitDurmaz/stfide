@@ -1,5 +1,9 @@
-// UI strings. Add a new language by copying `en` and translating the values,
-// then registering it in LANGUAGES. Placeholders look like {name}.
+// UI strings. Add a new language by copying `en` into its own file,
+// translating the values, and registering it in LANGUAGES and
+// LANGUAGE_NAMES. Placeholders look like {name}. Missing keys fall back
+// to English.
+
+import { tr } from './i18n-tr.js';
 
 const en = {
   // toolbar
@@ -9,7 +13,6 @@ const en = {
   'toolbar.open': 'Open',
   'toolbar.save': 'Save',
   'toolbar.examples': 'Examples',
-  'toolbar.port': 'Port',
   'toolbar.noPort': 'No board connected',
   'toolbar.monitor': 'Serial Monitor',
   'view.code': 'Code',
@@ -47,8 +50,6 @@ const en = {
   'monitor.lineEnding.both': 'Both NL & CR',
 
   // pins tab
-  'pins.title': 'Pin setup',
-  'pins.hint': 'Click a pin on the board to choose what it does.',
   'pins.pin': 'Pin {pin}',
   'pins.role': 'Used as',
   'pins.name': 'Name in code',
@@ -145,25 +146,79 @@ const en = {
   'palette.sensors': 'Sensors',
   'palette.outputs': 'Motors & displays',
 
-  // components
-  'components.title': 'Components',
-  'components.add': 'Add component',
-  'components.none': 'Sensors, displays and other parts with ready-to-use code.',
-  'components.remove': 'Remove',
-  'components.pick': 'Choose a component',
-  'components.cancel': 'Cancel',
-  'components.bus': 'Connects to',
   'components.library': 'Library',
+
+  // settings
+  'toolbar.settings': 'Settings',
+  'settings.title': 'Settings',
+  'settings.language': 'Language',
+  'settings.languageNote': 'The window reloads to switch the language. Part names in generated code stay in English.',
+  'settings.fontSize': 'Editor font size',
+  'settings.sketchbook': 'Sketchbook folder',
+  'settings.sketchbookHint': 'New sketches are created here, and Open starts here.',
+  'settings.browse': 'Browse…',
+  'settings.default': 'Use default',
+  'settings.badFolder': 'Can\'t use that folder: {error}',
+
+  // dialogs and status bar
+  'dialog.cancel': 'Cancel',
+  'dialog.save': 'Save',
+  'dialog.dontSave': 'Don\'t save',
+  'dialog.create': 'Create',
+  'dialog.saveFirst': 'Save changes to your sketch first?',
+  'dialog.saveBeforeClose': 'Save changes to your sketch before closing?',
+  'dialog.openSketch': 'Open sketch',
+  'dialog.saveSketchAs': 'Save sketch as',
+  'dialog.newTab': 'Name for the new file (e.g. helpers.h or motors). Without an extension it becomes a .ino tab.',
+  'dialog.badTabName': 'Use letters, digits and _, ending in .ino, .h, .cpp or .c.',
+  'dialog.tabExists': 'A file with that name already exists.',
+  'tabs.new': 'New tab',
+  'monitor.baud': '{baud} baud',
+  'status.boardOn': '{board} on {port}',
+  'status.notConnected': '{board} (not connected)',
+
+  // menus (main process)
+  'menu.file': 'File',
+  'menu.newSketch': 'New Sketch',
+  'menu.open': 'Open…',
+  'menu.save': 'Save',
+  'menu.saveAs': 'Save As…',
+  'menu.newTab': 'New Tab…',
+  'menu.openSketchbook': 'Open Sketchbook Folder',
+  'menu.settings': 'Settings…',
+  'menu.sketch': 'Sketch',
+  'menu.verify': 'Verify',
+  'menu.upload': 'Upload',
+  'menu.showCircuit': 'Show Circuit',
+  'menu.showCode': 'Show Code',
+  'menu.showFolder': 'Show Sketch Folder',
+  'menu.tools': 'Tools',
+  'menu.serialMonitor': 'Serial Monitor',
+  'menu.view': 'View',
+  'menu.help': 'Help',
+  'menu.reference': 'Arduino Language Reference',
+  'menu.about': 'About STFIDE',
+  'menu.aboutDetail': 'An Arduino-style IDE for the STFKart board.',
 };
 
-const tr = {};
-
+// Display names, in their own language, for the Settings window.
+export const LANGUAGE_NAMES = { en: 'English', tr: 'Türkçe' };
 export const LANGUAGES = { en, tr };
 
 let current = 'en';
 
 export function setLanguage(lang) {
   if (LANGUAGES[lang]) current = lang;
+}
+
+export function getLanguage() {
+  return current;
+}
+
+// For strings whose English lives next to their data (part names and
+// hints): the translation if there is one, otherwise `fallback`.
+export function tx(key, fallback) {
+  return LANGUAGES[current][key] ?? fallback;
 }
 
 export function t(key, vars = {}) {
