@@ -397,3 +397,23 @@ pre.snippet { white-space: pre-wrap; }
 .folder-row { display: flex; gap: 6px; }
 .folder-row input { flex: 1; min-width: 0; font-family: var(--mono); font-size: 12px; }
 .folder-row button { padding: 4px 10px; border: 1px solid var(--border); }
+
+/* ---------- part protocol and resistor bands ---------- */
+.field .caps { margin: 0; }
+.caps .chip.comm { font-family: inherit; }
+.caps .chip.comm:not(.nocomm) { background: #2d4a6b; }
+.field input.invalid { border-color: #d9534f; outline-color: #d9534f; }
+.bands { display: flex; gap: 4px; flex-wrap: wrap; }
+.band { border-radius: 3px; padding: 1px 6px; font-size: 11px; border: 1px solid var(--border); color: #fff; }
+.band.b-2 { background: #c3c7c0; color: #000; }
+.band.b-1 { background: #f1d863; color: #000; }
+.band.b0 { background: #000; }
+.band.b1 { background: #8f4814; }
+.band.b2 { background: #fb0000; }
+.band.b3 { background: #fc9700; color: #000; }
+.band.b4 { background: #fcf800; color: #000; }
+.band.b5 { background: #00b800; color: #000; }
+.band.b6 { background: #0000ff; }
+.band.b7 { background: #a803d6; }
+.band.b8 { background: #808080; }
+.band.b9 { background: #fcfcfc; color: #000; }

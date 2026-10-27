@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { LANGUAGES, LANGUAGE_NAMES, setLanguage, t, tx } from '../src/common/i18n.js';
-import { PARTS } from '../src/common/parts.js';
+import { BAND_COLORS, COMM, PARTS } from '../src/common/parts.js';
 
 const placeholders = (s) => (s.match(/\{\w+\}/g) ?? []).sort().join();
 
@@ -22,6 +22,8 @@ test('Turkish names every part and option', () => {
     if (def.hint) assert.ok(LANGUAGES.tr[`hint.${type}`], `hint.${type}`);
     for (const o of def.options ?? []) assert.ok(LANGUAGES.tr[`option.${o.key}`], `option.${o.key}`);
   }
+  for (const comm of Object.keys(COMM)) assert.ok(LANGUAGES.tr[`comm.${comm}`], `comm.${comm}`);
+  for (const d of Object.keys(BAND_COLORS)) assert.ok(LANGUAGES.tr[`band.${d}`], `band.${d}`);
 });
 
 test('falls back to English', () => {
