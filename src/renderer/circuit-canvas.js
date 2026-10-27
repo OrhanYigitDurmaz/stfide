@@ -124,6 +124,12 @@ export class CircuitCanvas {
     Promise.all(pending).then(() => requestAnimationFrame(() => this.drawWires()));
   }
 
+  // Changes an attribute on a part's drawing before the change is committed,
+  // e.g. resistor bands while the value is being typed.
+  previewAttr(id, attr, value) {
+    this.wrappers.get(id)?.firstChild.setAttribute(attr, value);
+  }
+
   syncWrapper(id, tag, attrs, x, y, rotate) {
     let w = this.wrappers.get(id);
     if (!w || w.firstChild.localName !== tag) {

@@ -8,7 +8,10 @@ import {
   missingHandlers, resolve, rolesForPin, usageFor, validate,
 } from '../common/pins.js';
 import { COMPONENTS } from '../common/components.js';
-import { BOARD_PART, PARTS, optionLabel, partHint, partLabel } from '../common/parts.js';
+import {
+  BOARD_PART, COMM, COMMON_RESISTORS, PARTS, bandLabel, commLabel, formatResistance, optionLabel, parseResistance,
+  partHint, partLabel, resistorBands,
+} from '../common/parts.js';
 import { deriveFromCircuit } from '../common/circuit.js';
 import { t } from '../common/i18n.js';
 import { CircuitCanvas, WIRE_COLORS } from './circuit-canvas.js';
@@ -198,15 +201,15 @@ export class PinsView {
     const derived = deriveFromCircuit(circuit);
     const issues = validate(cfg);
     const s = this.selection;
-    this.inspector.replaceChildren(
+    this.inspector.replaceChildren(...[
       s?.kind === 'part' ? this.renderPart(cfg, derived, s.id)
         : s?.kind === 'wire' ? this.renderWire(cfg, s.id)
           : s?.kind === 'board' ? this.renderBoard(cfg, derived)
             : this.renderHelp(),
-      this.renderBuses(cfg, derived),
+      this.renderBuses(cfg, derived, s?.kind === 'part' ? this.partBuses(circuit, s.id) : null),
       this.renderIssues(issues),
       this.renderGenerated(cfg),
-    );
+    ].filter(Boolean));
   }
 
   renderHelp() {
@@ -228,6 +231,10 @@ export class PinsView {
     }
     for (const o of def.options ?? []) {
       const value = part.options[o.key];
+      if (o.type === 'resistance') {
+        section.append(...this.renderResistance(part, o, edit));
+        continue;
+      }
       const input = o.choices
         ? h('select', { onchange: (e) => edit((p) => { p.options[o.key] = e.target.value; }) },
           o.choices.map((v) => h('option', { value: v, selected: String(v) === String(value) }, v)))
@@ -237,6 +244,10 @@ export class PinsView {
         });
       section.append(h('label', { class: 'field' }, h('span', {}, optionLabel(o)), input));
     }
+
+    const comm = def.comm ?? 'nocomm';
+    section.append(h('div', { class: 'field' }, h('span', {}, t('circuit.protocol')),
+      h('span', { class: 'caps' }, h('span', { class: `chip comm ${comm}` }, commLabel(comm)))));
 
     // What it ended up connected to, and how to use it in code.
     const resolved = resolve(cfg);
@@ -262,6 +273,51 @@ export class PinsView {
       h('button', { onclick: () => this.canvas.rotateSelection() }, t('circuit.rotate')),
       h('button', { class: 'danger', onclick: () => this.canvas.deleteSelection() }, t('circuit.delete'))));
     return section;
+  }
+
+  // A free-typed resistor value. The drawing's bands follow while typing; the
+  // value is saved (rounded to what 4 bands can show) when the field is left.
+  renderResistance(part, o, edit) {
+    const current = Number(part.options[o.key]) || Number(o.default);
+    const bands = h('div', { class: 'bands' });
+    const showBands = (ohms) => bands.replaceChildren(...resistorBands(ohms).map((d) => h('span', { class: `band b${d}`, title: bandLabel(d) }, bandLabel(d))));
+    showBands(current);
+    const listId = `resistors-${part.id}`;
+    const input = h('input', {
+      value: formatResistance(current),
+      list: listId,
+      spellcheck: 'false',
+      title: t('circuit.resistanceHelp'),
+      oninput: (e) => {
+        const ohms = parseResistance(e.target.value);
+        e.target.classList.toggle('invalid', ohms === null);
+        if (ohms === null) return;
+        this.canvas.previewAttr(part.id, o.attr, String(ohms));
+        showBands(ohms);
+      },
+      onchange: (e) => {
+        const ohms = parseResistance(e.target.value);
+        if (ohms === null || ohms === current) {
+          e.target.value = formatResistance(current);
+          e.target.classList.remove('invalid');
+          this.canvas.previewAttr(part.id, o.attr, String(current));
+          showBands(current);
+          return;
+        }
+        edit((p) => { p.options[o.key] = String(ohms); });
+      },
+    });
+    return [
+      h('label', { class: 'field' }, h('span', {}, optionLabel(o)), input,
+        h('datalist', { id: listId }, COMMON_RESISTORS.map((v) => h('option', { value: formatResistance(v) })))),
+      h('div', { class: 'field' }, h('span', {}, t('circuit.bands')), bands),
+    ];
+  }
+
+  // The buses a selected part talks over; null when it isn't a part.
+  partBuses(circuit, id) {
+    const part = circuit.parts.find((p) => p.id === id);
+    return part ? COMM[PARTS[part.type].comm ?? 'nocomm'].buses : null;
   }
 
   renderWire(cfg, id) {
@@ -383,7 +439,10 @@ export class PinsView {
     return section;
   }
 
-  renderBuses(cfg, derived) {
+  // only: bus keys to show (for the selected part), or null for all of them.
+  renderBuses(cfg, derived, only = null) {
+    if (only && !only.length) return null;
+    const shown = (key) => !only || only.includes(key);
     const bus = (key, label, pins, extra, forced) => h('div', { class: 'periph' },
       h('label', { class: 'head', title: forced ? t('circuit.i2cForced') : '' },
         h('input', {
@@ -400,16 +459,16 @@ export class PinsView {
 
     return h('section', {},
       h('h3', {}, t('pins.peripherals')),
-      bus('serial', t('pins.serial'), 'D0 RX · D1 TX',
+      shown('serial') && bus('serial', t('pins.serial'), 'D0 RX · D1 TX',
         h('label', { class: 'field' }, h('span', {}, t('pins.baud')),
           h('select', { onchange: (e) => this.update((c) => { c.serial.baud = Number(e.target.value); }) },
             BAUD_RATES.map((b) => h('option', { value: b, selected: b === Number(cfg.serial.baud) }, String(b)))))),
-      bus('i2c', t('pins.i2c'), 'A4 SDA · A5 SCL',
+      shown('i2c') && bus('i2c', t('pins.i2c'), 'A4 SDA · A5 SCL',
         h('label', { class: 'field' }, h('span', {}, t('pins.i2cClock')),
           h('select', { onchange: (e) => this.update((c) => { c.i2c.clock = Number(e.target.value); }) },
             I2C_CLOCKS.map((b) => h('option', { value: b, selected: b === Number(cfg.i2c.clock) }, `${b / 1000} kHz`)))),
         derived.i2c),
-      bus('spi', t('pins.spi'), 'D11 MOSI · D12 MISO · D13 SCK', null),
+      shown('spi') && bus('spi', t('pins.spi'), 'D11 MOSI · D12 MISO · D13 SCK', null),
     );
   }
 
