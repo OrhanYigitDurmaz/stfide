@@ -104,7 +104,7 @@ son
 | `iken ... tekrarla`, `N kez tekrarla`, `sürekli tekrarla` | `while`, counted `for`, `while (true)` |
 | `her i için 1'den 10'a kadar [adım 2]` | `for (int i = 1; i <= 10; i += 2)` (counts down when start > end) |
 | `kır`, `atla`, `işlev`, `döndür` | `break`, `continue`, function, `return` |
-| `ve` `veya` `değil`, `doğru` `yanlış`, `YÜKSEK` `DÜŞÜK` | `&&` `\|\|` `!`, `true` `false`, `HIGH` `LOW` |
+| `ve` `veya` `değil`, `doğru` `yanlış`, `YÜKSEK` `DÜŞÜK`, `DAHİLİ_LED` / `KART_LEDİ` | `&&` `\|\|` `!`, `true` `false`, `HIGH` `LOW`, `LED_BUILTIN` |
 | `çıkış` `giriş` `yak` `söndür` `oku` `analog_oku` `analog_yaz` `bekle` `yaz` `ses` ... | `pinMode` `digitalWrite` `digitalRead` `analogRead` `analogWrite` `delay` `Serial.println` `tone` ... |
 
 Keywords and names also work without Turkish letters (`eger`, `dongu`). Turkish names become ASCII in C++ (`sıcaklık` -> `sicaklik`). Pin and component names from the Circuit tab, and any Arduino call (`lcd.print(...)`), can be used as they are. The full list of built-in functions is in `src/common/stf/codegen.js`.

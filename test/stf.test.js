@@ -214,3 +214,9 @@ test('basılı_mı ve sayı_değil_mi', () => {
   const c = kod('döngü\n eğer basılı_mı(düğme) ve değil sayı_değil_mi(x) ise\n  yak(13)\n son\nson');
   assert.match(c, /if \(\(digitalRead\(dugme\) == LOW\) && !isnan\(x\)\)/);
 });
+
+test('DAHİLİ_LED ve KART_LEDİ, LED_BUILTIN olur', () => {
+  const c = kod('kur\n çıkış(DAHİLİ_LED)\nson\ndöngü\n yak(KART_LEDİ)\n söndür(DAHILI_LED)\nson');
+  assert.match(c, /pinMode\(LED_BUILTIN, OUTPUT\);/);
+  assert.match(c, /digitalWrite\(LED_BUILTIN, HIGH\);\n {2}digitalWrite\(LED_BUILTIN, LOW\);/);
+});

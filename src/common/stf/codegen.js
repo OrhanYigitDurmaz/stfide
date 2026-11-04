@@ -10,7 +10,7 @@ import { HAZIR_NESNELER, KUTUPHANE_ADLARI, NESNE_TIPLERI, YAZDIRMA, harfsizBul, 
 const TIP_CPP = { sayı: 'int', uzun: 'long', ondalık: 'float', metin: 'String', mantık: 'bool', bayt: 'byte' };
 
 // Sabit değerler (Türkçe harfsiz yazımları da kabul edilir).
-const SABITLER = { dogru: 'true', yanlis: 'false', YUKSEK: 'HIGH', DUSUK: 'LOW' };
+const SABITLER = { dogru: 'true', yanlis: 'false', YUKSEK: 'HIGH', DUSUK: 'LOW', DAHILI_LED: 'LED_BUILTIN', KART_LEDI: 'LED_BUILTIN' };
 
 // Kullanıcı bu adlarla değişken/işlev tanımlarsa C++'ta sonuna _ eklenir.
 const AYRILMIS = new Set(`alignas alignof and asm auto bool break case catch char class const constexpr
