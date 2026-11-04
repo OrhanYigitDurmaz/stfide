@@ -109,6 +109,19 @@ son
 
 Keywords and names also work without Turkish letters (`eger`, `dongu`). Turkish names become ASCII in C++ (`sıcaklık` -> `sicaklik`). Pin and component names from the Circuit tab, and any Arduino call (`lcd.print(...)`), can be used as they are. The full list of built-in functions is in `src/common/stf/codegen.js`.
 
+### Libraries in STF
+
+Objects from the Circuit tab (LCD, servo, sensors, NeoPixel...) and the built-in `Serial`, `Wire`, `EEPROM`, `SPI` objects take Turkish method names, translated per type: `ekran.yaz("Merhaba")` -> `ekran.print(F("Merhaba"))`, `kapi.açı(90)` -> `kapi.write(90)`, `hava.sıcaklık_oku()` -> `hava.readTemperature()`. English method names still work. Libraries not on the Circuit tab are used with `kütüphane` and `nesne`:
+
+```
+kütüphane servo                 // #include <Servo.h>  (or: kütüphane "AnyLibrary.h")
+nesne Servo kol                 // Servo kol;  (the library is included automatically)
+nesne LcdEkran ekran(0x27, 16, 2)
+nesne NeoPiksel serit(8, 6, NEO_GRB + NEO_KHZ800)
+```
+
+Object types: `Servo`, `LcdEkran`, `DhtSensör`, `NeoPiksel`, `YazılımSeri`, `TekTel`, `SıcaklıkSensörleri` (or the C++ name). The method tables are in `src/common/stf/libraries.js`; the `KutuphaneSTF` and `EkranVeServoSTF` examples use them. A library must be bundled with STFIDE to compile.
+
 The translator is plain JavaScript with no dependencies, in `src/common/stf/`: `lexer.js` (text to tokens), `parser.js` (a hand-written recursive-descent parser, tokens to syntax tree), `codegen.js` (tree to C++ with `#line` directives). It also runs from the command line:
 
 ```

@@ -1,0 +1,23 @@
+// STF dili: Devre sekmesindeki LCD ekran, servo ve mesafe sensörü Türkçe komutlarla.
+
+kur
+    ekran.temizle()
+    ekran.yaz("Merhaba STFKart")
+son
+
+döngü
+    ondalık cm = mesafe.mesafe_oku()
+
+    ekran.imleç(0, 1)
+    ekran.yaz("Mesafe: ")
+    ekran.yaz(cm)
+    ekran.yaz(" cm   ")
+
+    // Yakında bir şey varsa kapıyı aç
+    eğer cm > 0 ve cm < 20 ise
+        kapi.açı(90)
+    değilse
+        kapi.açı(0)
+    son
+    bekle(200)
+son

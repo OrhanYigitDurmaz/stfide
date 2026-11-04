@@ -113,3 +113,86 @@ test('STF sketch: translation and C++ errors point at the .stf line', { skip }, 
   assert.equal(d.line, 2);
   assert.match(d.message, /==/);
 });
+
+test('STF: every Turkish library method name compiles', { skip }, async () => {
+  const { createSketch } = await import('../src/main/sketch.js');
+  const sketch = createSketch(path.join(tmp, 'stflib'), new Date(), { stf: true });
+  fs.writeFileSync(path.join(sketch.dir, sketch.main), `
+nesne Servo kol
+nesne LcdEkran ekran(0x27, 16, 2)
+nesne DhtSensor hava(2, DHT11)
+nesne NeoPiksel serit(8, 6, NEO_GRB + NEO_KHZ800)
+nesne YazilimSeri seri2(10, 11)
+nesne TekTel tel(4)
+nesne SicaklikSensorleri prob(tel)
+kur
+    kol.bağla(9)
+    kol.açı(90)
+    kol.mikrosaniye(1500)
+    sayı a = kol.açı_oku()
+    mantık b = kol.bağlı_mı()
+    kol.ayır()
+    ekran.başlat()
+    ekran.ışık_aç()
+    ekran.ışık_kapat()
+    ekran.temizle()
+    ekran.başa_dön()
+    ekran.imleç(0, 1)
+    ekran.yaz("x")
+    ekran.göster()
+    ekran.gizle()
+    ekran.imleci_göster()
+    ekran.imleci_gizle()
+    ekran.yanıp_sön()
+    ekran.yanıp_sönme()
+    ekran.sola_kaydır()
+    ekran.sağa_kaydır()
+    hava.başlat()
+    ondalık s = hava.sıcaklık_oku() + hava.nem_oku()
+    serit.başlat()
+    serit.parlaklık(40)
+    serit.piksel(0, serit.renk(1, 2, 3))
+    serit.piksel(1, serit.renk_tonu(1000))
+    serit.doldur(serit.renk(0, 0, 0))
+    sayı n = serit.piksel_sayısı()
+    serit.temizle()
+    serit.göster()
+    seri2.başlat(9600)
+    seri2.dinle()
+    seri2.yaz("a")
+    seri2.satır_yaz(1)
+    seri2.gönder(65)
+    eğer seri2.hazır() > 0 ise
+        sayı c = seri2.oku() + seri2.sayı_oku()
+        ondalık d = seri2.ondalık_oku()
+    son
+    seri2.bekle_gönder()
+    tel.sıfırla()
+    tel.atla()
+    tel.gönder(0x44)
+    sayı e = tel.oku()
+    prob.başlat()
+    prob.ölç()
+    ondalık f = prob.sıcaklık_oku(0) + prob.sensör_sayısı()
+    Serial.başlat(9600)
+    Serial.satır_yaz("ok")
+    Wire.başlat()
+    Wire.hız(100000)
+    Wire.iletim_başlat(8)
+    Wire.gönder(1)
+    Wire.iletim_bitir()
+    Wire.iste(8, 1)
+    eğer Wire.hazır() > 0 ise
+        sayı g = Wire.oku()
+    son
+    EEPROM.yaz(0, 1)
+    EEPROM.kaydet(1, 2)
+    sayı h = EEPROM.oku(0) + EEPROM.uzunluk()
+    SPI.başlat()
+    sayı k = SPI.aktar(0)
+    SPI.bitir()
+son
+`);
+  const r = await toolchain.compile(sketch.dir, {});
+  assert.equal(r.code, 0, `${r.stdout}\n${r.stderr}`);
+});

@@ -1,0 +1,31 @@
+// STF dili: Devre sekmesi kullanmadan kütüphane ve nesne tanımlama.
+
+kütüphane servo
+nesne Servo kol
+nesne NeoPiksel serit(8, 6, NEO_GRB + NEO_KHZ800)
+
+sayı açı = 0
+
+kur
+    kol.bağla(9)
+    serit.başlat()
+    serit.parlaklık(40)
+    EEPROM.yaz(0, 1)   // EEPROM kendiliğinden eklenir
+son
+
+döngü
+    her i için 0'dan 7'ye kadar
+        serit.piksel(i, serit.renk(0, 0, 255))
+        serit.göster()
+        bekle(50)
+    son
+    serit.temizle()
+    serit.göster()
+
+    açı = açı + 30
+    eğer açı > 180 ise
+        açı = 0
+    son
+    kol.açı(açı)
+    bekle(300)
+son

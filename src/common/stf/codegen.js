@@ -5,6 +5,7 @@
 
 import { StfHatasi } from './errors.js';
 import { asciiYap } from './lexer.js';
+import { HAZIR_NESNELER, KUTUPHANE_ADLARI, NESNE_TIPLERI, YAZDIRMA, harfsizBul, yontemBul } from './libraries.js';
 
 const TIP_CPP = { sayı: 'int', uzun: 'long', ondalık: 'float', metin: 'String', mantık: 'bool', bayt: 'byte' };
 
@@ -68,7 +69,8 @@ export const HAZIR_ISLEVLER = Object.values(HAZIR).map((h) => h.ornek);
 
 const ONCELIK = { '||': 1, '&&': 2, '==': 3, '!=': 3, '<': 4, '>': 4, '<=': 4, '>=': 4, '+': 5, '-': 5, '*': 6, '/': 6, '%': 6 };
 
-export function uret(ast, { dosya = 'program.stf', baslik = [] } = {}) {
+// nesneler: Devre sekmesindeki nesneler { ad: c++ tipi } (libraries.js devreNesneleri)
+export function uret(ast, { dosya = 'program.stf', baslik = [], nesneler = {} } = {}) {
   const satirlar = [];
   let eslenen = null; // sıradaki C++ satırının karşılık geldiği .stf satırı
   const dosyaAdi = dosya.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
@@ -85,10 +87,17 @@ export function uret(ast, { dosya = 'program.stf', baslik = [] } = {}) {
   // Kullanıcının tanımladığı tüm adlar: C++ ile çakışanlar yeniden adlandırılır.
   const tanimli = new Set();
   const islevler = new Map();
+  // Nesne adı -> C++ tipi; metotların Türkçe adlarını çevirmek için.
+  const nesneTipi = new Map(Object.entries({ ...HAZIR_NESNELER, ...nesneler }).map(([k, v]) => [asciiYap(k), v]));
+  const kullanilan = new Set(); // kodda geçen adlar (EEPROM, Wire... başlıkları için)
   topla(ast.govde);
   function topla(govde) {
     for (const k of govde) {
       if (k.tur === 'degisken') tanimli.add(asciiYap(k.ad));
+      if (k.tur === 'nesne') {
+        tanimli.add(asciiYap(k.ad));
+        nesneTipi.set(asciiYap(k.ad), nesneTipiBul(k).cpp);
+      }
       if (k.tur === 'islev') {
         tanimli.add(asciiYap(k.ad));
         islevler.set(asciiYap(k.ad), k);
@@ -111,6 +120,7 @@ export function uret(ast, { dosya = 'program.stf', baslik = [] } = {}) {
       case 'parantez': return `(${ifd(e.ifade)})`;
       case 'ad': {
         const a = asciiYap(e.ad);
+        kullanilan.add(a);
         if (!tanimli.has(a) && SABITLER[a]) return SABITLER[a];
         return ad(e.ad);
       }
@@ -137,11 +147,25 @@ export function uret(ast, { dosya = 'program.stf', baslik = [] } = {}) {
           const r = h.cpp(argumanlar(e, h));
           return Array.isArray(r) ? (r.length === 1 ? r[0] : `(${r.join(', ')})`) : r;
         }
+        if (e.fonk.tur === 'uye') return metotCagrisi(e);
         return `${ifd(e.fonk)}(${e.argumanlar.map(ifd).join(', ')})`;
       }
       default: throw new Error(`bilinmeyen ifade: ${e.tur}`);
     }
   };
+
+  // ekran.yaz("Merhaba") -> ekran.print(F("Merhaba")), kol.açı(90) -> kol.write(90)
+  function metotCagrisi(e) {
+    const { nesne, ad: metot } = e.fonk;
+    const tip = nesne.tur === 'ad' ? nesneTipi.get(asciiYap(nesne.ad)) : null;
+    const asil = yontemBul(tip, metot, asciiYap) ?? asciiYap(metot);
+    const args = e.argumanlar.map((x) => (YAZDIRMA.has(asil) && x.tur === 'metin' ? `F(${ifd(x)})` : ifd(x)));
+    return `${ifd(nesne)}.${asil}(${args.join(', ')})`;
+  }
+
+  function nesneTipiBul(k) {
+    return harfsizBul(NESNE_TIPLERI, k.tip, asciiYap) ?? { cpp: asciiYap(k.tip), basliklar: [] };
+  }
 
   function hazir(e) {
     if (e.fonk.tur !== 'ad') return null;
@@ -283,6 +307,28 @@ export function uret(ast, { dosya = 'program.stf', baslik = [] } = {}) {
     goruldu.add(asciiYap(f.ad));
   }
 
+  // Kütüphane başlıkları: "kütüphane" satırları, "nesne" tipleri ve kullanılan hazır nesneler.
+  const basliklar = [];
+  const baslikEkle = (h) => {
+    if (!basliklar.includes(h)) basliklar.push(h);
+  };
+  for (const k of ast.govde) {
+    if (k.tur === 'kutuphane') {
+      if (k.metin) baslikEkle(k.ad);
+      else {
+        const bilinen = harfsizBul(KUTUPHANE_ADLARI, k.ad, asciiYap);
+        if (!bilinen) {
+          throw new StfHatasi(`"${k.ad}" diye bir kütüphane bilinmiyor. Bilinenler: ${Object.keys(KUTUPHANE_ADLARI).join(', ')}. Başka bir kütüphane için başlık dosyasını tırnakla yaz: kütüphane "Kutuphane.h"`, k.line, k.col);
+        }
+        bilinen.forEach(baslikEkle);
+      }
+    }
+    if (k.tur === 'nesne') nesneTipiBul(k).basliklar.forEach(baslikEkle);
+  }
+  // Kodun tamamı üretilmeden hangi adların kullanıldığı bilinmez; başlıklar
+  // sonradan, taslağın en üstüne eklenir (satır eşlemesini bozmaz: #line var).
+  const baslikYeri = satirlar.length;
+
   for (const s of baslik) yaz(null, s);
   // İşlevler tanımlanmadan önce de çağrılabilsin diye önce imzaları yazılır.
   if (islevler.size) {
@@ -293,6 +339,10 @@ export function uret(ast, { dosya = 'program.stf', baslik = [] } = {}) {
   for (const k of ast.govde) {
     if (k.tur === 'degisken') {
       yaz(k.line, `${degiskenTanimi(k)};`);
+    } else if (k.tur === 'nesne') {
+      const t = nesneTipiBul(k);
+      const args = k.argumanlar.map((a, i) => (t.adresle?.includes(i) && a.tur === 'ad' ? `&${ifd(a)}` : ifd(a)));
+      yaz(k.line, `${t.cpp} ${ad(k.ad)}${args.length ? `(${args.join(', ')})` : ''};`);
     } else if (k.tur === 'kur' || k.tur === 'dongu') {
       yaz(k.line, `void ${k.tur === 'kur' ? 'setup' : 'loop'}() {`);
       if (k.tur === 'kur') yaz(null, 'stfkartBegin();', 1);
@@ -313,5 +363,11 @@ export function uret(ast, { dosya = 'program.stf', baslik = [] } = {}) {
     satirlar.push('', 'void setup() {', '  stfkartBegin();', '}');
   }
   if (!donguler.length) satirlar.push('', 'void loop() {', '}');
+  if (kullanilan.has('EEPROM')) baslikEkle('EEPROM.h');
+  if (kullanilan.has('Wire')) baslikEkle('Wire.h');
+  if (kullanilan.has('SPI')) baslikEkle('SPI.h');
+  // #include'lar Arduino.h'den sonra, ilk boş satırdan önce gelir.
+  const bos = satirlar.indexOf('', baslikYeri);
+  satirlar.splice(bos < 0 ? baslikYeri + baslik.length : bos, 0, ...basliklar.map((h) => `#include <${h}>`));
   return `${satirlar.join('\n')}\n`;
 }

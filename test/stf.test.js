@@ -138,3 +138,56 @@ test('Türkçe hata mesajları ve doğru satır', () => {
   assert.match(hata('döngü\n yak(13) bekle(1)\nson').message, /kendi satırında/);
   assert.match(hata("döngü\n yaz('a')\nson").message, /Tek tırnak/);
 });
+
+test('kütüphane satırları #include olur', () => {
+  const c = kod('kütüphane servo\nkütüphane lcd\nkütüphane "IRremote.h"');
+  assert.match(c, /#include <Servo\.h>\n#include <Wire\.h>\n#include <LiquidCrystal_I2C\.h>\n#include <IRremote\.h>/);
+  assert.match(hata('kütüphane uzayGemisi').message, /bilinmiyor.*kütüphane "Kutuphane\.h"/s);
+});
+
+test('nesne tanımları C++ nesnesi olur ve kütüphanesini ekler', () => {
+  const c = kod('nesne Servo kol\nnesne LcdEkran ekran(0x27, 16, 2)\nnesne TekTel tel(4)\nnesne SıcaklıkSensörleri prob(tel)\nnesne Foo bar(1)');
+  assert.match(c, /#include <Servo\.h>/);
+  assert.match(c, /#include <LiquidCrystal_I2C\.h>/);
+  assert.match(c, /#include <DallasTemperature\.h>/);
+  assert.match(c, /^Servo kol;$/m);
+  assert.match(c, /^LiquidCrystal_I2C ekran\(0x27, 16, 2\);$/m);
+  assert.match(c, /^DallasTemperature prob\(&tel\);$/m);
+  assert.match(c, /^Foo bar\(1\);$/m);
+  assert.match(hata('kur\n nesne Servo kol\nson').message, /en dışta/);
+});
+
+test('nesnelerin Türkçe metotları asıl metotlara çevrilir', () => {
+  const c = kod([
+    'nesne Servo kol', 'nesne LcdEkran ekran(0x27, 16, 2)', 'nesne NeoPiksel şerit(8, 6, NEO_GRB)',
+    'döngü',
+    ' kol.bağla(9)', ' kol.açı(90)',
+    ' ekran.başlat()', ' ekran.ışık_aç()', ' ekran.imleç(0, 1)', ' ekran.yaz("Merhaba")', ' ekran.temizle()',
+    ' şerit.piksel(0, şerit.renk(255, 0, 0))', ' şerit.göster()',
+    ' EEPROM.yaz(0, 5)', ' Serial.satır_yaz("x")', ' Wire.iletim_başlat(8)',
+    ' ekran.scrollDisplayLeft()', ' bilinmeyen.yaz(3)',
+    'son',
+  ].join('\n'));
+  assert.match(c, /kol\.attach\(9\);\n {2}kol\.write\(90\);/);
+  assert.match(c, /ekran\.init\(\);\n {2}ekran\.backlight\(\);\n {2}ekran\.setCursor\(0, 1\);\n {2}ekran\.print\(F\("Merhaba"\)\);\n {2}ekran\.clear\(\);/);
+  assert.match(c, /serit\.setPixelColor\(0, serit\.Color\(255, 0, 0\)\);\n {2}serit\.show\(\);/);
+  assert.match(c, /EEPROM\.write\(0, 5\);/);
+  assert.match(c, /Serial\.println\(F\("x"\)\);/);
+  assert.match(c, /Wire\.beginTransmission\(8\);/);
+  assert.match(c, /ekran\.scrollDisplayLeft\(\);/); // İngilizce adlar olduğu gibi kalır
+  assert.match(c, /bilinmeyen\.print\(3\);/);
+  assert.match(c, /#include <EEPROM\.h>/);
+  assert.match(c, /#include <Wire\.h>/);
+});
+
+test('Devre sekmesindeki nesnelerin tipleri metotları belirler', async () => {
+  const { devreNesneleri } = await import('../src/common/stf/index.js');
+  const { addComponent, emptyConfig } = await import('../src/common/pins.js');
+  let cfg = emptyConfig();
+  cfg = addComponent(cfg, 'dht');
+  const nesneler = devreNesneleri(cfg);
+  const [ad] = Object.keys(nesneler);
+  assert.equal(nesneler[ad], 'DHT');
+  const r = cevir(`döngü\n ondalık s = ${ad}.sıcaklık_oku()\n ondalık n = ${ad}.nem_oku()\nson`, { nesneler });
+  assert.match(r.kod, new RegExp(`${ad}\\.readTemperature\\(\\);[\\s\\S]*${ad}\\.readHumidity\\(\\);`));
+});
