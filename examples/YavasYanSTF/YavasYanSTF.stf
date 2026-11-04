@@ -1,0 +1,13 @@
+// STF dili: D9'daki LED'i PWM ile yavaşça yakıp söndürür.
+
+sayı parlaklık = 0
+sayı adım_boyu = 5
+
+döngü
+    analog_yaz(solukLed, parlaklık)   // 0 = kapalı, 255 = tam parlak
+    parlaklık = parlaklık + adım_boyu
+    eğer parlaklık <= 0 veya parlaklık >= 255 ise
+        adım_boyu = -adım_boyu   // uçlarda yön değiştir
+    son
+    bekle(30)
+son

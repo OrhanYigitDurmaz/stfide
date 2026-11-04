@@ -1,0 +1,66 @@
+{
+  "version": 2,
+  "pins": {},
+  "serial": {
+    "enabled": false,
+    "baud": 9600
+  },
+  "i2c": {
+    "enabled": false,
+    "clock": 100000
+  },
+  "spi": {
+    "enabled": false
+  },
+  "components": [],
+  "circuit": {
+    "board": {
+      "x": 0,
+      "y": 0
+    },
+    "parts": [
+      {
+        "id": "p1",
+        "type": "led",
+        "name": "solukLed",
+        "x": 130.6,
+        "y": -150,
+        "rotate": 0,
+        "options": {
+          "color": "red",
+          "initial": "LOW",
+          "brightness": "Dimmable (PWM)",
+          "value": 0
+        }
+      }
+    ],
+    "wires": [
+      {
+        "id": "w1",
+        "from": {
+          "part": "p1",
+          "pin": "A"
+        },
+        "to": {
+          "part": "board",
+          "pin": "D9"
+        },
+        "color": "green",
+        "points": []
+      },
+      {
+        "id": "w2",
+        "from": {
+          "part": "p1",
+          "pin": "C"
+        },
+        "to": {
+          "part": "board",
+          "pin": "GND.1"
+        },
+        "color": "black",
+        "points": []
+      }
+    ]
+  }
+}

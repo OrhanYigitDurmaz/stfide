@@ -1,10 +1,113 @@
 {
-  "version": 1,
-  "pins": {
-    "A0": { "role": "analog", "name": "sensor" },
-    "D13": { "role": "led", "name": "led", "initial": "LOW" }
+  "version": 2,
+  "pins": {},
+  "serial": {
+    "enabled": true,
+    "baud": 9600
   },
-  "serial": { "enabled": true, "baud": 9600 },
-  "i2c": { "enabled": false, "clock": 100000 },
-  "spi": { "enabled": false }
+  "i2c": {
+    "enabled": false,
+    "clock": 100000
+  },
+  "spi": {
+    "enabled": false
+  },
+  "components": [],
+  "circuit": {
+    "board": {
+      "x": 0,
+      "y": 0
+    },
+    "parts": [
+      {
+        "id": "p1",
+        "type": "potentiometer",
+        "name": "sensor",
+        "x": 152.8,
+        "y": 261,
+        "rotate": 0,
+        "options": {}
+      },
+      {
+        "id": "p2",
+        "type": "led",
+        "name": "led",
+        "x": 92.2,
+        "y": -150,
+        "rotate": 0,
+        "options": {
+          "color": "red",
+          "initial": "LOW",
+          "brightness": "On/off"
+        }
+      }
+    ],
+    "wires": [
+      {
+        "id": "w1",
+        "from": {
+          "part": "p1",
+          "pin": "SIG"
+        },
+        "to": {
+          "part": "board",
+          "pin": "A0"
+        },
+        "color": "green",
+        "points": []
+      },
+      {
+        "id": "w2",
+        "from": {
+          "part": "p1",
+          "pin": "VCC"
+        },
+        "to": {
+          "part": "board",
+          "pin": "5V"
+        },
+        "color": "red",
+        "points": []
+      },
+      {
+        "id": "w3",
+        "from": {
+          "part": "p1",
+          "pin": "GND"
+        },
+        "to": {
+          "part": "board",
+          "pin": "GND.2"
+        },
+        "color": "black",
+        "points": []
+      },
+      {
+        "id": "w4",
+        "from": {
+          "part": "p2",
+          "pin": "A"
+        },
+        "to": {
+          "part": "board",
+          "pin": "D13"
+        },
+        "color": "green",
+        "points": []
+      },
+      {
+        "id": "w5",
+        "from": {
+          "part": "p2",
+          "pin": "C"
+        },
+        "to": {
+          "part": "board",
+          "pin": "GND.1"
+        },
+        "color": "black",
+        "points": []
+      }
+    ]
+  }
 }

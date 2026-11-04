@@ -69,7 +69,7 @@ code.
 
 ## STF dili (Turkish-syntax language)
 
-STFIDE also has its own small language with Turkish keywords. *File > New STF Sketch* creates `Name.stf` instead of `Name.ino`. When you verify or upload, STFIDE translates it to Arduino C++ (`Name_stf.cpp`, shown read-only on the *C++ (üretilen)* tab) and compiles that with arduino-cli. Errors from the translator and from the C++ compiler are marked on the `.stf` line. The examples `YakSondurSTF`, `IsiAlarmiSTF` and `MelodiSTF` use it.
+STFIDE also has its own small language with Turkish keywords. *File > New STF Sketch* creates `Name.stf` instead of `Name.ino`. When you verify or upload, STFIDE translates it to Arduino C++ (`Name_stf.cpp`, shown read-only on the *C++ (üretilen)* tab) and compiles that with arduino-cli. Errors from the translator and from the C++ compiler are marked on the `.stf` line. Every Arduino example also has a Turkish STF version with its circuit drawn on the Circuit tab: `YakSondurSTF` (Blink), `DugmeSTF` (Button), `YavasYanSTF` (Fade), `PotOkuSTF` (AnalogRead), `KesmeSayaciSTF` (InterruptCounter), `MelodiSTF` (Melody), `GokkusagiSTF` (RainbowStrip), `ServoPotSTF` (ServoKnob), `HavaIstasyonuSTF` (WeatherStation), plus `IsiAlarmiSTF`, `EkranVeServoSTF` and `KutuphaneSTF`.
 
 ```
 sayı notalar[] = [262, 294, 330]

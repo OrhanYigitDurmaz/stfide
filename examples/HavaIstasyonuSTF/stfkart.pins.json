@@ -1,0 +1,139 @@
+{
+  "version": 2,
+  "pins": {},
+  "serial": {
+    "enabled": false,
+    "baud": 9600
+  },
+  "i2c": {
+    "enabled": true,
+    "clock": 100000
+  },
+  "spi": {
+    "enabled": false
+  },
+  "components": [],
+  "circuit": {
+    "board": {
+      "x": 0,
+      "y": 0
+    },
+    "parts": [
+      {
+        "id": "p1",
+        "type": "dht22",
+        "name": "hava",
+        "x": 205,
+        "y": -150,
+        "rotate": 0,
+        "options": {
+          "model": "DHT11"
+        }
+      },
+      {
+        "id": "p2",
+        "type": "lcd1602",
+        "name": "ekran",
+        "x": 319,
+        "y": 0,
+        "rotate": 0,
+        "options": {
+          "address": "0x27"
+        }
+      }
+    ],
+    "wires": [
+      {
+        "id": "w1",
+        "from": {
+          "part": "p1",
+          "pin": "SDA"
+        },
+        "to": {
+          "part": "board",
+          "pin": "D2"
+        },
+        "color": "green",
+        "points": []
+      },
+      {
+        "id": "w2",
+        "from": {
+          "part": "p1",
+          "pin": "VCC"
+        },
+        "to": {
+          "part": "board",
+          "pin": "5V"
+        },
+        "color": "red",
+        "points": []
+      },
+      {
+        "id": "w3",
+        "from": {
+          "part": "p1",
+          "pin": "GND"
+        },
+        "to": {
+          "part": "board",
+          "pin": "GND.3"
+        },
+        "color": "black",
+        "points": []
+      },
+      {
+        "id": "w4",
+        "from": {
+          "part": "p2",
+          "pin": "VCC"
+        },
+        "to": {
+          "part": "board",
+          "pin": "5V"
+        },
+        "color": "red",
+        "points": []
+      },
+      {
+        "id": "w5",
+        "from": {
+          "part": "p2",
+          "pin": "GND"
+        },
+        "to": {
+          "part": "board",
+          "pin": "GND.3"
+        },
+        "color": "black",
+        "points": []
+      },
+      {
+        "id": "w6",
+        "from": {
+          "part": "p2",
+          "pin": "SDA"
+        },
+        "to": {
+          "part": "board",
+          "pin": "A4"
+        },
+        "color": "green",
+        "points": []
+      },
+      {
+        "id": "w7",
+        "from": {
+          "part": "p2",
+          "pin": "SCL"
+        },
+        "to": {
+          "part": "board",
+          "pin": "A5"
+        },
+        "color": "green",
+        "points": []
+      }
+    ]
+  }
+}

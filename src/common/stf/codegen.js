@@ -32,6 +32,8 @@ const HAZIR = {
   sondur: { en: 1, ek: 1, ornek: 'söndür(13)', cpp: (a) => `digitalWrite(${a[0]}, LOW)` },
   dijital_yaz: { en: 2, ek: 2, ornek: 'dijital_yaz(13, YÜKSEK)', cpp: (a) => `digitalWrite(${a[0]}, ${a[1]})` },
   oku: { en: 1, ek: 1, ornek: 'oku(2)', cpp: (a) => `digitalRead(${a[0]})` },
+  // Düğme GND'ye bağlı ve iç direnç açık: basılıyken LOW okunur.
+  basili_mi: { en: 1, ek: 1, ornek: 'basılı_mı(düğme)', cpp: (a) => `(digitalRead(${a[0]}) == LOW)` },
   analog_oku: { en: 1, ek: 1, ornek: 'analog_oku(A0)', cpp: (a) => `analogRead(${a[0]})` },
   analog_yaz: { en: 2, ek: 2, ornek: 'analog_yaz(9, 128)', cpp: (a) => `analogWrite(${a[0]}, ${a[1]})` },
   bekle: { en: 1, ek: 1, ornek: 'bekle(1000)', cpp: (a) => `delay(${a[0]})` },
@@ -53,6 +55,7 @@ const HAZIR = {
   en_buyuk: { en: 2, ek: 2, ornek: 'en_büyük(a, b)', cpp: (a) => `max(${a[0]}, ${a[1]})` },
   karekok: { en: 1, ek: 1, ornek: 'karekök(x)', cpp: (a) => `sqrt(${a[0]})` },
   us: { en: 2, ek: 2, ornek: 'üs(2, 8)', cpp: (a) => `pow(${a[0]}, ${a[1]})` },
+  sayi_degil_mi: { en: 1, ek: 1, ornek: 'sayı_değil_mi(s)', cpp: (a) => `isnan(${a[0]})` },
   // yaz: değerleri yan yana yazar, sonra alt satıra geçer. Sabit metinler F()
   // ile flash'ta tutulur, 2 KB RAM'den yemez.
   yaz: { en: 0, ek: 99, ornek: 'yaz("Sıcaklık: ", s)', yazdir: true, cpp: (a) => seriYaz(a, true) },

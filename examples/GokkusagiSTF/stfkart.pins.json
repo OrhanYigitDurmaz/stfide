@@ -1,0 +1,76 @@
+{
+  "version": 2,
+  "pins": {},
+  "serial": {
+    "enabled": false,
+    "baud": 9600
+  },
+  "i2c": {
+    "enabled": false,
+    "clock": 100000
+  },
+  "spi": {
+    "enabled": false
+  },
+  "components": [],
+  "circuit": {
+    "board": {
+      "x": 0,
+      "y": 0
+    },
+    "parts": [
+      {
+        "id": "p1",
+        "type": "neopixelRing",
+        "name": "serit",
+        "x": 319,
+        "y": 0,
+        "rotate": 0,
+        "options": {
+          "count": "8"
+        }
+      }
+    ],
+    "wires": [
+      {
+        "id": "w1",
+        "from": {
+          "part": "p1",
+          "pin": "DIN"
+        },
+        "to": {
+          "part": "board",
+          "pin": "D6"
+        },
+        "color": "green",
+        "points": []
+      },
+      {
+        "id": "w2",
+        "from": {
+          "part": "p1",
+          "pin": "VCC"
+        },
+        "to": {
+          "part": "board",
+          "pin": "5V"
+        },
+        "color": "red",
+        "points": []
+      },
+      {
+        "id": "w3",
+        "from": {
+          "part": "p1",
+          "pin": "GND"
+        },
+        "to": {
+          "part": "board",
+          "pin": "GND.3"
+        },
+        "color": "black",
+        "points": []
+      }
+    ]
+  }
+}
