@@ -1,0 +1,64 @@
+{
+  "version": 2,
+  "pins": {},
+  "serial": {
+    "enabled": true,
+    "baud": 9600
+  },
+  "i2c": {
+    "enabled": false,
+    "clock": 100000
+  },
+  "spi": {
+    "enabled": false
+  },
+  "components": [],
+  "circuit": {
+    "board": {
+      "x": 0,
+      "y": 0
+    },
+    "parts": [
+      {
+        "id": "p1",
+        "type": "pushbutton",
+        "name": "sayacDugmesi",
+        "x": 205,
+        "y": -150,
+        "rotate": 0,
+        "options": {
+          "color": "green",
+          "mode": "interrupt"
+        }
+      }
+    ],
+    "wires": [
+      {
+        "id": "w1",
+        "from": {
+          "part": "p1",
+          "pin": "1.l"
+        },
+        "to": {
+          "part": "board",
+          "pin": "D2"
+        },
+        "color": "green",
+        "points": []
+      },
+      {
+        "id": "w2",
+        "from": {
+          "part": "p1",
+          "pin": "2.l"
+        },
+        "to": {
+          "part": "board",
+          "pin": "GND.1"
+        },
+        "color": "black",
+        "points": []
+      }
+    ]
+  }
+}

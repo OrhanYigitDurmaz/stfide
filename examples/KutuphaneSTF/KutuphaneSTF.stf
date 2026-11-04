@@ -1,31 +1,21 @@
-// STF dili: Devre sekmesi kullanmadan kütüphane ve nesne tanımlama.
+// STF dili: düğmeye basış sayısını EEPROM'a kaydeder; kart kapanıp açılınca da hatırlar.
 
-kütüphane servo
-nesne Servo kol
-nesne NeoPiksel serit(8, 6, NEO_GRB + NEO_KHZ800)
+kütüphane eeprom
 
-sayı açı = 0
+sayı sayaç = 0
 
 kur
-    kol.bağla(9)
-    serit.başlat()
-    serit.parlaklık(40)
-    EEPROM.yaz(0, 1)   // EEPROM kendiliğinden eklenir
+    sayaç = EEPROM.oku(0)   // bir EEPROM hücresi 0-255 tutar
+    yaz("Kayıtlı basış: ", sayaç)
 son
 
 döngü
-    her i için 0'dan 7'ye kadar
-        serit.piksel(i, serit.renk(0, 0, 255))
-        serit.göster()
-        bekle(50)
+    eğer basılı_mı(düğme) ise
+        sayaç++
+        EEPROM.kaydet(0, sayaç)   // sadece değişince yazar, EEPROM'u yıpratmaz
+        yaz("Basış: ", sayaç)
+        yak(led)
+        bekle(300)
+        söndür(led)
     son
-    serit.temizle()
-    serit.göster()
-
-    açı = açı + 30
-    eğer açı > 180 ise
-        açı = 0
-    son
-    kol.açı(açı)
-    bekle(300)
 son

@@ -1,0 +1,8 @@
+// STF dili: A0'daki potansiyometreyi okur, değeri Seri Monitör'e yazar.
+
+döngü
+    sayı değer = analog_oku(pot)        // 0..1023
+    ondalık volt = değer * (5.0 / 1023.0)
+    yaz("Değer: ", değer, "  Gerilim: ", volt)
+    bekle(200)
+son

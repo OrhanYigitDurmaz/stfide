@@ -1,0 +1,26 @@
+// STF dili: DHT11'den sıcaklık ve nemi okuyup I2C LCD ekranda gösterir.
+
+kur
+    ekran.yaz("Hava istasyonu")
+    bekle(1000)
+son
+
+döngü
+    ondalık sıcaklık = hava.sıcaklık_oku()
+    ondalık nem = hava.nem_oku()
+
+    ekran.temizle()
+    eğer sayı_değil_mi(sıcaklık) veya sayı_değil_mi(nem) ise
+        ekran.yaz("Sensor hatasi")
+    değilse
+        ekran.imleç(0, 0)
+        ekran.yaz("Sicaklik: ")
+        ekran.yaz(sıcaklık, 1)
+        ekran.yaz(" C")
+        ekran.imleç(0, 1)
+        ekran.yaz("Nem: ")
+        ekran.yaz(nem, 0)
+        ekran.yaz(" %")
+    son
+    bekle(2000)   // DHT11 en fazla 1-2 saniyede bir okunabilir
+son

@@ -1,0 +1,24 @@
+// STF dili: D2'deki düğmeye basışları kesme (interrupt) ile sayar.
+
+sayı basış = 0     // kesme içinde artar
+sayı gösterilen = 0
+uzun son_basış = 0
+
+kur
+    yaz("D2'deki düğmeye bas")
+son
+
+döngü
+    eğer basış != gösterilen ise
+        gösterilen = basış
+        yaz("Basış: ", gösterilen)
+    son
+son
+
+// D2 her LOW olduğunda çalışır. Kısa tut.
+işlev onSayaçDüğmesi()
+    eğer milisaniye() - son_basış > 50 ise   // düğme titremesini yok say
+        basış++
+    son
+    son_basış = milisaniye()
+son

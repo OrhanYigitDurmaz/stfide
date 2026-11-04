@@ -1,0 +1,9 @@
+// STF dili: D2'deki düğmeye basılı tutunca LED yanar.
+
+döngü
+    eğer basılı_mı(düğme) ise
+        yak(led)
+    değilse
+        söndür(led)
+    son
+son

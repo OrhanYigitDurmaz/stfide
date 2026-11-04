@@ -1,0 +1,8 @@
+// STF dili: D9'daki servo, A0'daki potansiyometreyi takip eder.
+
+döngü
+    sayı değer = analog_oku(pot)              // 0..1023
+    sayı açı = eşle(değer, 0, 1023, 0, 180)   // 0..180 dereceye çevir
+    kol.açı(açı)
+    bekle(15)
+son

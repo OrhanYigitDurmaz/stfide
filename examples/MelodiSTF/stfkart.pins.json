@@ -1,7 +1,61 @@
 {
-  "version": 1,
-  "pins": { "D8": { "role": "buzzer", "name": "buzzer" } },
-  "serial": { "enabled": false, "baud": 9600 },
-  "i2c": { "enabled": false, "clock": 100000 },
-  "spi": { "enabled": false }
+  "version": 2,
+  "pins": {},
+  "serial": {
+    "enabled": false,
+    "baud": 9600
+  },
+  "i2c": {
+    "enabled": false,
+    "clock": 100000
+  },
+  "spi": {
+    "enabled": false
+  },
+  "components": [],
+  "circuit": {
+    "board": {
+      "x": 0,
+      "y": 0
+    },
+    "parts": [
+      {
+        "id": "p1",
+        "type": "buzzer",
+        "name": "buzzer",
+        "x": 140.2,
+        "y": -150,
+        "rotate": 0,
+        "options": {}
+      }
+    ],
+    "wires": [
+      {
+        "id": "w1",
+        "from": {
+          "part": "p1",
+          "pin": "2"
+        },
+        "to": {
+          "part": "board",
+          "pin": "D8"
+        },
+        "color": "green",
+        "points": []
+      },
+      {
+        "id": "w2",
+        "from": {
+          "part": "p1",
+          "pin": "1"
+        },
+        "to": {
+          "part": "board",
+          "pin": "GND.1"
+        },
+        "color": "black",
+        "points": []
+      }
+    ]
+  }
 }

@@ -1,0 +1,21 @@
+// STF dili: D6'daki 8 LED'lik NeoPixel şeritte gökkuşağı akıtır.
+
+uzun ton = 0
+
+kur
+    şerit.parlaklık(40)   // 0-255; USB'den beslenirken düşük tut
+son
+
+döngü
+    sayı adet = şerit.piksel_sayısı()
+    her i için 0'dan adet - 1'e kadar
+        uzun piksel_tonu = ton + i * 65536 / adet
+        şerit.piksel(i, şerit.gamma32(şerit.renk_tonu(piksel_tonu)))
+    son
+    şerit.göster()
+    ton = ton + 256
+    eğer ton >= 65536 ise
+        ton = 0
+    son
+    bekle(20)
+son

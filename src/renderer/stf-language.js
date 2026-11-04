@@ -8,7 +8,7 @@ import {
 } from '../common/stf/index.js';
 import { codeSymbols } from '../common/pins.js';
 
-const SABITLER = ['doğru', 'yanlış', 'YÜKSEK', 'DÜŞÜK', 'A0', 'A1', 'A2', 'A3', 'A4', 'A5', 'LED_BUILTIN'];
+const SABITLER = ['doğru', 'yanlış', 'YÜKSEK', 'DÜŞÜK', 'DAHİLİ_LED', 'KART_LEDİ', 'A0', 'A1', 'A2', 'A3', 'A4', 'A5', 'LED_BUILTIN'];
 // "yaz(\"x\")" -> "yaz"
 const HAZIR_ADLAR = HAZIR_ISLEVLER.map((o) => o.slice(0, o.indexOf('(')));
 

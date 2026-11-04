@@ -191,3 +191,32 @@ test('Devre sekmesindeki nesnelerin tipleri metotları belirler', async () => {
   const r = cevir(`döngü\n ondalık s = ${ad}.sıcaklık_oku()\n ondalık n = ${ad}.nem_oku()\nson`, { nesneler });
   assert.match(r.kod, new RegExp(`${ad}\\.readTemperature\\(\\);[\\s\\S]*${ad}\\.readHumidity\\(\\);`));
 });
+
+test('her STF örneğinin bağlanmış bir devre şeması var ve Türkçeye çevrilebiliyor', async () => {
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const { normalizeConfig, validate } = await import('../src/common/pins.js');
+  const { devreNesneleri } = await import('../src/common/stf/index.js');
+  const dir = path.join(import.meta.dirname, '..', 'examples');
+  const stf = fs.readdirSync(dir).filter((d) => fs.existsSync(path.join(dir, d, `${d}.stf`)));
+  assert.ok(stf.length >= 10);
+  for (const d of stf) {
+    const cfg = normalizeConfig(JSON.parse(fs.readFileSync(path.join(dir, d, 'stfkart.pins.json'), 'utf8')));
+    assert.ok(cfg.circuit.parts.length > 0, `${d}: şemada parça yok`);
+    assert.ok(cfg.circuit.wires.length > 0, `${d}: şemada kablo yok`);
+    assert.deepEqual(validate(cfg).filter((i) => i.level === 'error'), [], d);
+    const r = cevir(fs.readFileSync(path.join(dir, d, `${d}.stf`), 'utf8'), { dosya: `${d}.stf`, nesneler: devreNesneleri(cfg) });
+    assert.equal(r.hata, undefined, `${d}: ${r.hata?.message}`);
+  }
+});
+
+test('basılı_mı ve sayı_değil_mi', () => {
+  const c = kod('döngü\n eğer basılı_mı(düğme) ve değil sayı_değil_mi(x) ise\n  yak(13)\n son\nson');
+  assert.match(c, /if \(\(digitalRead\(dugme\) == LOW\) && !isnan\(x\)\)/);
+});
+
+test('DAHİLİ_LED ve KART_LEDİ, LED_BUILTIN olur', () => {
+  const c = kod('kur\n çıkış(DAHİLİ_LED)\nson\ndöngü\n yak(KART_LEDİ)\n söndür(DAHILI_LED)\nson');
+  assert.match(c, /pinMode\(LED_BUILTIN, OUTPUT\);/);
+  assert.match(c, /digitalWrite\(LED_BUILTIN, HIGH\);\n {2}digitalWrite\(LED_BUILTIN, LOW\);/);
+});
