@@ -176,6 +176,7 @@ const en = {
   'dialog.badTabName': 'Use letters, digits and _, ending in .ino, .h, .cpp or .c.',
   'dialog.tabExists': 'A file with that name already exists.',
   'tabs.new': 'New tab',
+  'tabs.stfPreview': 'C++ (generated)',
   'monitor.baud': '{baud} baud',
   'status.boardOn': '{board} on {port}',
   'status.notConnected': '{board} (not connected)',
@@ -183,6 +184,7 @@ const en = {
   // menus (main process)
   'menu.file': 'File',
   'menu.newSketch': 'New Sketch',
+  'menu.newStfSketch': 'New STF Sketch (Turkish)',
   'menu.open': 'Open…',
   'menu.save': 'Save',
   'menu.saveAs': 'Save As…',

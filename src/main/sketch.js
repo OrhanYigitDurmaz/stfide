@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { CONFIG_FILE, emptyConfig, generate, normalizeConfig } from '../common/pins.js';
 
-const SOURCE_EXT = new Set(['.ino', '.cpp', '.c', '.h', '.hpp']);
+const SOURCE_EXT = new Set(['.ino', '.stf', '.cpp', '.c', '.h', '.hpp']);
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 
 export const NEW_SKETCH = `void setup() {
@@ -17,6 +17,30 @@ void loop() {
 
 }
 `;
+
+// A new sketch in the Turkish STF language (see src/common/stf/).
+export const NEW_STF_SKETCH = `// STF dili: Türkçe yaz, STFKart'ta çalıştır.
+
+kur
+    // Bir kez, kart açılınca çalışır.
+    // Devre sekmesindeki pinler kendiliğinden hazırlanır.
+
+son
+
+döngü
+    // Sürekli tekrar eder.
+
+son
+`;
+
+// The main file of a sketch: Name.ino, or Name.stf for an STF sketch.
+export function mainFileOf(dir) {
+  const name = path.basename(dir);
+  for (const ext of ['.ino', '.stf']) {
+    if (fs.existsSync(path.join(dir, name + ext))) return name + ext;
+  }
+  return null;
+}
 
 const VALID_NAME = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,62}$/;
 
@@ -32,9 +56,9 @@ export function resolveSketchDir(p) {
 
 export function loadSketch(dir) {
   const name = path.basename(dir);
-  const main = `${name}.ino`;
-  if (!fs.existsSync(path.join(dir, main))) {
-    throw new Error(`"${dir}" is not a sketch: ${main} is missing.`);
+  const main = mainFileOf(dir);
+  if (!main) {
+    throw new Error(`"${dir}" is not a sketch: ${name}.ino is missing.`);
   }
   const files = fs.readdirSync(dir)
     .filter((f) => SOURCE_EXT.has(path.extname(f).toLowerCase()) && fs.statSync(path.join(dir, f)).isFile())
@@ -73,21 +97,22 @@ export function uniqueSketchDir(parent, base) {
   return candidate;
 }
 
-export function createSketch(sketchbook, date = new Date()) {
+export function createSketch(sketchbook, date = new Date(), { stf = false } = {}) {
   const base = `sketch_${MONTHS[date.getMonth()]}${date.getDate()}`;
   let dir = path.join(sketchbook, `${base}a`);
   for (let c = 98; fs.existsSync(dir) && c <= 122; c++) dir = path.join(sketchbook, base + String.fromCharCode(c));
   if (fs.existsSync(dir)) dir = uniqueSketchDir(sketchbook, base);
   const name = path.basename(dir);
-  saveSketch(dir, { files: [{ name: `${name}.ino`, content: NEW_SKETCH }], config: emptyConfig() });
+  const main = stf ? { name: `${name}.stf`, content: NEW_STF_SKETCH } : { name: `${name}.ino`, content: NEW_SKETCH };
+  saveSketch(dir, { files: [main], config: emptyConfig() });
   return loadSketch(dir);
 }
 
-// Copies a sketch to a new folder, renaming the main .ino to match.
+// Copies a sketch to a new folder, renaming the main .ino/.stf to match.
 export function copySketch(fromDir, toDir, { files, config } = {}) {
   if (fs.existsSync(toDir)) throw new Error(`"${toDir}" already exists.`);
-  const fromMain = `${path.basename(fromDir)}.ino`;
-  const toMain = `${path.basename(toDir)}.ino`;
+  const fromMain = mainFileOf(fromDir) ?? `${path.basename(fromDir)}.ino`;
+  const toMain = path.basename(toDir) + path.extname(fromMain);
   fs.mkdirSync(toDir, { recursive: true });
   for (const f of fs.readdirSync(fromDir)) {
     const src = path.join(fromDir, f);
@@ -106,10 +131,11 @@ export function copySketch(fromDir, toDir, { files, config } = {}) {
 export function listExamples(examplesDir) {
   if (!fs.existsSync(examplesDir)) return [];
   return fs.readdirSync(examplesDir)
-    .filter((d) => fs.existsSync(path.join(examplesDir, d, `${d}.ino`)))
+    .filter((d) => mainFileOf(path.join(examplesDir, d)))
     .map((d) => {
-      const ino = fs.readFileSync(path.join(examplesDir, d, `${d}.ino`), 'utf8');
-      const m = /^\/\/\s*(.+)$/m.exec(ino);
-      return { name: d, description: m ? m[1] : '' };
+      const main = mainFileOf(path.join(examplesDir, d));
+      const src = fs.readFileSync(path.join(examplesDir, d, main), 'utf8');
+      const m = /^\/\/\s*(.+)$/m.exec(src);
+      return { name: d, description: m ? m[1] : '', stf: main.endsWith('.stf') };
     });
 }

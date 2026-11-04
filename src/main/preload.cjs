@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld('stfide', {
   sketch: {
     initial: invoke('sketch:initial'),
     create: invoke('sketch:new'),
+    createStf: invoke('sketch:newStf'),
     open: invoke('sketch:open'),
     save: invoke('sketch:save'),
     saveAs: invoke('sketch:saveAs'),

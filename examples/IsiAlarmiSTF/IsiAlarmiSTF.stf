@@ -1,0 +1,34 @@
+// STF dili: A0'daki sıcaklık sensörünü okur, 30 derecede LED'i yakar.
+
+sabit ondalık SINIR = 30
+ondalık sıcaklık = 0
+
+kur
+    yaz("Isı alarmı başladı")
+son
+
+döngü
+    sıcaklık = dereceye_çevir(analog_oku(sensor))
+    yaz("Sıcaklık: ", sıcaklık, " C")
+
+    eğer sıcaklık >= SINIR ise
+        yaz("Çok sıcak!")
+        3 kez tekrarla
+            yak(led)
+            bekle(100)
+            söndür(led)
+            bekle(100)
+        son
+    değilse eğer sıcaklık < 0 ise
+        yaz("Sensör bağlı mı?")
+    değilse
+        söndür(led)
+    son
+
+    bekle(1000)
+son
+
+// LM35 sensörü: her 10 mV bir derece. 5 V / 1024 adım.
+işlev dereceye_çevir(sayı ham) ondalık
+    döndür ham * 5.0 / 1024 * 100
+son

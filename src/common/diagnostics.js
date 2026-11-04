@@ -1,7 +1,7 @@
 // Turns arduino-cli / gcc / avrdude output into editor markers and
 // beginner-friendly hints.
 
-const GCC_LINE = /^(.*?\.(?:ino|cpp|c|h|hpp|S)):(\d+):(?:(\d+):)? (fatal error|error|warning|note): (.*)$/;
+const GCC_LINE = /^(.*?\.(?:ino|stf|cpp|c|h|hpp|S)):(\d+):(?:(\d+):)? (fatal error|error|warning|note): (.*)$/;
 
 // Returns [{ file, line, column, severity, message }].
 // `file` is the base name, which is how sketch files are identified.

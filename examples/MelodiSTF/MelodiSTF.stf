@@ -1,0 +1,17 @@
+// STF dili: D8'deki buzzer ile kısa bir melodi çalar.
+
+sayı notalar[] = [262, 294, 330, 349, 392, 440, 494, 523]
+
+kur
+    her i için 0'dan 7'ye kadar
+        ses(buzzer, notalar[i], 200)
+        bekle(250)
+    son
+    her i için 7'den 0'a kadar
+        ses(buzzer, notalar[i], 200)
+        bekle(250)
+    son
+son
+
+döngü
+son
