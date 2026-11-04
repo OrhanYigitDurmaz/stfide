@@ -11,7 +11,7 @@ export const ANAHTAR_KELIMELER = [
   'kur', 'döngü', 'işlev', 'döndür', 'son',
   'eğer', 'ise', 'değilse',
   'iken', 'tekrarla', 'kez', 'her', 'için', 'kadar', 'adım', 'sürekli',
-  'kır', 'atla', 'sabit',
+  'kır', 'atla', 'sabit', 'kütüphane', 'nesne',
   've', 'veya', 'değil',
   'sayı', 'uzun', 'ondalık', 'metin', 'mantık', 'bayt',
 ];

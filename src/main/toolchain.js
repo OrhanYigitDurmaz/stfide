@@ -15,8 +15,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { BOARD } from '../common/board.js';
-import { HEADER_FILE } from '../common/pins.js';
-import { cevir, hataSatiri } from '../common/stf/index.js';
+import { CONFIG_FILE, HEADER_FILE, normalizeConfig } from '../common/pins.js';
+import { cevir, devreNesneleri, hataSatiri } from '../common/stf/index.js';
 
 const EXE = process.platform === 'win32' ? 'arduino-cli.exe' : 'arduino-cli';
 
@@ -175,7 +175,7 @@ export function stageSketch(sketchDir, stagingRoot) {
         let content = fs.readFileSync(path.join(sketchDir, r));
         if (r === `${name}.stf`) {
           // STF sketch: translate to C++. arduino-cli still needs a Name.ino.
-          const res = cevir(String(content), { dosya: r, pinBasligi: HEADER_FILE });
+          const res = cevir(String(content), { dosya: r, pinBasligi: HEADER_FILE, nesneler: circuitObjects(sketchDir) });
           if (res.hata) throw new StfTranslateError(hataSatiri(path.join(sketchDir, r), res.hata));
           put(`${name}.ino`, Buffer.from(`// STF sketch: the program is in ${stfOutputName(name)}, translated from ${r}.\n`));
           put(stfOutputName(name), Buffer.from(res.kod));
@@ -199,6 +199,18 @@ export function stageSketch(sketchDir, stagingRoot) {
   };
   prune('');
   return dest;
+}
+
+// Circuit tab objects (lcd, servos...) and their C++ types, so STF can
+// translate their Turkish method names.
+function circuitObjects(sketchDir) {
+  const file = path.join(sketchDir, CONFIG_FILE);
+  if (!fs.existsSync(file)) return {};
+  try {
+    return devreNesneleri(normalizeConfig(JSON.parse(fs.readFileSync(file, 'utf8'))));
+  } catch {
+    return {};
+  }
 }
 
 function findOnPath(exe) {

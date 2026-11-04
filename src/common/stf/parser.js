@@ -4,6 +4,7 @@
 //
 //   program   := { üst_öğe satır }
 //   üst_öğe   := "kur" blok "son" | "döngü" blok "son" | işlev | değişken
+//              | "kütüphane" (METİN | AD) | "nesne" AD AD ["(" ifadeler ")"]
 //   işlev     := "işlev" AD "(" [tip AD {"," tip AD}] ")" [tip] blok "son"
 //   değişken  := ["sabit"] tip AD ["[" [ifade] "]"] ["=" (ifade | "[" ifadeler "]")]
 //   komut     := değişken | eğer | iken | kez | her | sürekli | "döndür" [ifade]
@@ -88,8 +89,33 @@ export function ayristir(tokens) {
     }
     if (anahtarMi('işlev')) return islev();
     if (anahtarMi('sabit') || tipMi()) return degisken();
+    if (anahtarMi('kütüphane')) {
+      al();
+      const ad = bak();
+      if (ad.type !== 'metin' && ad.type !== 'ad') throw hata('Kütüphanenin adı bekleniyordu. Örnek: kütüphane servo  ya da  kütüphane "Servo.h"');
+      al();
+      return { tur: 'kutuphane', ad: ad.value, metin: ad.type === 'metin', line: t.line, col: ad.col };
+    }
+    if (anahtarMi('nesne')) return nesne();
     if (anahtarMi('son')) throw hata('Fazladan "son": kapatacak bir blok yok.');
-    throw hata(`Burada ${goster(t)} olamaz. En dışta sadece "kur", "döngü", "işlev" ve değişken tanımları olabilir; komutları "kur" ya da "döngü" içine yaz.`);
+    throw hata(`Burada ${goster(t)} olamaz. En dışta sadece "kur", "döngü", "işlev", "kütüphane", "nesne" ve değişken tanımları olabilir; komutları "kur" ya da "döngü" içine yaz.`);
+  }
+
+  // nesne Servo kol   /   nesne LcdEkran ekran(0x27, 16, 2)
+  function nesne() {
+    const bas = al();
+    const tip = adBekle('Nesnenin tipi (Servo, LcdEkran, NeoPiksel...)');
+    const ad = adBekle('Nesnenin adı');
+    const argumanlar = [];
+    if (isaretMi('(')) {
+      al();
+      if (!isaretMi(')')) {
+        do argumanlar.push(ifade());
+        while (isaretMi(',') && al());
+      }
+      bekle('isaret', ')', '")"');
+    }
+    return { tur: 'nesne', tip: tip.value, tipCol: tip.col, ad: ad.value, argumanlar, line: bas.line };
   }
 
   function islev() {
@@ -192,6 +218,9 @@ export function ayristir(tokens) {
         }
         case 'kır': al(); return { tur: 'kir', line: t.line };
         case 'atla': al(); return { tur: 'atla', line: t.line };
+        case 'kütüphane':
+        case 'nesne':
+          throw hata(`"${t.value}" en dışta, "kur" ve "döngü"nün dışında yazılmalı.`);
         case 'kur':
         case 'döngü':
         case 'işlev':
@@ -386,7 +415,8 @@ export function ayristir(tokens) {
         ifd = { tur: 'indis', nesne: ifd, indis };
       } else if (isaretMi('.')) {
         al();
-        const ad = adBekle('Noktadan sonra bir ad');
+        // Noktadan sonra anahtar kelimeler de metot adı olabilir: tel.atla()
+        const ad = bak().type === 'anahtar' ? al() : adBekle('Noktadan sonra bir ad');
         ifd = { tur: 'uye', nesne: ifd, ad: ad.value };
       } else {
         return ifd;

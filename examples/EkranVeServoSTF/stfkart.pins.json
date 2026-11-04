@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "pins": { "D9": { "role": "servo", "name": "kapi" } },
+  "serial": { "enabled": false, "baud": 9600 },
+  "i2c": { "enabled": true, "clock": 100000 },
+  "spi": { "enabled": false },
+  "components": [
+    { "type": "lcd", "name": "ekran", "options": { "address": "0x27", "size": "16x2" } },
+    { "type": "ultrasonic", "name": "mesafe", "pins": { "trig": "D7", "echo": "D8" } }
+  ]
+}

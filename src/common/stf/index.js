@@ -13,12 +13,14 @@ export { StfHatasi } from './errors.js';
 export { sozcukle, asciiYap, ANAHTAR_KELIMELER } from './lexer.js';
 export { ayristir, TIPLER } from './parser.js';
 export { uret, HAZIR_ISLEVLER } from './codegen.js';
+export { YONTEMLER, GENEL_YONTEMLER, NESNE_TIPLERI, KUTUPHANE_ADLARI, HAZIR_NESNELER, devreNesneleri, harfsizBul } from './libraries.js';
 
 export const STF_EXT = '.stf';
 
 // kaynak: .stf dosyasının metni. dosya: hata satırlarında görünecek ad.
 // Döner: { kod } ya da { hata: { line, col, message } }
-export function cevir(kaynak, { dosya = 'program.stf', pinBasligi = 'stfkart_pins.h' } = {}) {
+// nesneler: Devre sekmesindeki nesnelerin tipleri, devreNesneleri(config) ile.
+export function cevir(kaynak, { dosya = 'program.stf', pinBasligi = 'stfkart_pins.h', nesneler = {} } = {}) {
   try {
     const ast = ayristir(sozcukle(kaynak));
     const baslik = [
@@ -27,7 +29,7 @@ export function cevir(kaynak, { dosya = 'program.stf', pinBasligi = 'stfkart_pin
       ...(pinBasligi ? [`#include "${pinBasligi}"`] : []),
       '',
     ];
-    return { kod: uret(ast, { dosya, baslik }) };
+    return { kod: uret(ast, { dosya, baslik, nesneler }) };
   } catch (e) {
     if (e instanceof StfHatasi) return { hata: { line: e.line, col: e.col, message: e.message } };
     throw e;

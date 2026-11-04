@@ -6,7 +6,7 @@ import { LANGUAGE_NAMES, getLanguage, setLanguage, t } from '../common/i18n.js';
 import { GENERATED_FILES, BAUD_RATES, emptyConfig, generate, hasErrors, validate } from '../common/pins.js';
 import { friendlyHints, parseDiagnostics, parseSize } from '../common/diagnostics.js';
 import { DEFAULT_FONT_SIZE, Editor, FONT_SIZES, loadMonaco } from './editor.js';
-import { cevir } from '../common/stf/index.js';
+import { cevir, devreNesneleri } from '../common/stf/index.js';
 import { PinsView } from './pins-view.js';
 
 const api = window.stfide;
@@ -184,7 +184,7 @@ function scheduleStfPreview() {
 // always shows what will be compiled.
 function updateStfPreview() {
   const main = state.sketch.main;
-  const r = cevir(editor.getContent(main), { dosya: main });
+  const r = cevir(editor.getContent(main), { dosya: main, nesneler: devreNesneleri(state.config) });
   editor.setMarkers(main, 'stf', r.hata ? [{ line: r.hata.line, column: r.hata.col, severity: 'error', message: r.hata.message }] : []);
   editor.replaceContent(stfPreviewName(), r.kod ?? `// ${main}:${r.hata.line}: ${r.hata.message}\n`);
 }
@@ -195,6 +195,7 @@ function setConfig(cfg) {
   editor.setConfig(cfg);
   const generated = generate(cfg);
   for (const name of GENERATED_FILES) editor.replaceContent(name, generated[name]);
+  if (isStf()) scheduleStfPreview();
   syncDirty();
   renderTabs();
 }
