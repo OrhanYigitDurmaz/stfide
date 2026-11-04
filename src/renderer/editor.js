@@ -2,6 +2,7 @@
 // autocomplete (including pin names from the Circuit tab), and error markers.
 
 import { codeSymbols } from '../common/pins.js';
+import { registerStfLanguage } from './stf-language.js';
 
 let monaco = null;
 
@@ -69,6 +70,8 @@ export class Editor {
       bracketPairColorization: { enabled: true },
       suggest: { showWords: false },
       fixedOverflowWidgets: true,
+      // Turkish letters (ı, ş, ğ...) are normal text here, not suspicious characters.
+      unicodeHighlight: { ambiguousCharacters: false, nonBasicASCII: false },
     });
     this.editor.onDidChangeCursorPosition((e) => onCursor(e.position));
     this.onChange = onChange;
@@ -91,7 +94,7 @@ export class Editor {
   }
 
   addFile({ name, content }) {
-    const model = monaco.editor.createModel(content, 'cpp', monaco.Uri.file(`/sketch/${name}`));
+    const model = monaco.editor.createModel(content, name.endsWith('.stf') ? 'stf' : 'cpp', monaco.Uri.file(`/sketch/${name}`));
     model.onDidChangeContent(() => this.onChange(name));
     this.models.set(name, model);
     return model;
@@ -137,6 +140,20 @@ export class Editor {
     this.reveal(name, model.getLineCount(), 1);
   }
 
+  // Markers from one source (owner) on one file; diagnostics as below.
+  setMarkers(name, owner, diagnostics) {
+    const model = this.models.get(name);
+    if (!model) return;
+    monaco.editor.setModelMarkers(model, owner, diagnostics.map((d) => ({
+      severity: d.severity === 'warning' ? monaco.MarkerSeverity.Warning : monaco.MarkerSeverity.Error,
+      message: d.message,
+      startLineNumber: d.line,
+      startColumn: d.column,
+      endLineNumber: d.line,
+      endColumn: model.getLineMaxColumn(Math.min(d.line, model.getLineCount())),
+    })));
+  }
+
   // diagnostics: [{ file, line, column, severity, message }]
   setDiagnostics(diagnostics) {
     for (const [name, model] of this.models) {
@@ -155,6 +172,7 @@ export class Editor {
   }
 
   registerLanguageFeatures() {
+    registerStfLanguage(monaco, () => this.config);
     const K = monaco.languages.CompletionItemKind;
     const Rule = monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet;
 

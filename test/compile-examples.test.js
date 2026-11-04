@@ -89,3 +89,27 @@ test('a compile error is reported against the sketch file', { skip }, async () =
   const lines = fs.readFileSync(main, 'utf8').split('\n');
   assert.equal(d.line, lines.findIndex((l) => l.includes('digitalWrit(')) + 1);
 });
+
+test('STF sketch: translation and C++ errors point at the .stf line', { skip }, async () => {
+  const { createSketch } = await import('../src/main/sketch.js');
+  const sketch = createSketch(path.join(tmp, 'stf'), new Date(), { stf: true });
+  assert.equal(sketch.main, `${sketch.name}.stf`);
+  const main = path.join(sketch.dir, sketch.main);
+
+  // Unknown name: caught by the C++ compiler, mapped back with #line.
+  fs.writeFileSync(main, 'kur\nson\n\ndöngü\n    bekle(10)\n    yak(olmayanPin)\nson\n');
+  let r = await toolchain.compile(sketch.dir, {});
+  assert.notEqual(r.code, 0);
+  let d = parseDiagnostics(r.stdout + r.stderr).find((x) => x.severity === 'error');
+  assert.equal(d.file, sketch.main);
+  assert.equal(d.line, 6);
+
+  // Syntax error: caught by the STF translator before arduino-cli runs.
+  fs.writeFileSync(main, 'döngü\n    eğer 1 = 1 ise\n    son\nson\n');
+  r = await toolchain.compile(sketch.dir, {});
+  assert.notEqual(r.code, 0);
+  d = parseDiagnostics(r.stderr).find((x) => x.severity === 'error');
+  assert.equal(d.file, sketch.main);
+  assert.equal(d.line, 2);
+  assert.match(d.message, /==/);
+});

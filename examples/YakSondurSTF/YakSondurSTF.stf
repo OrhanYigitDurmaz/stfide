@@ -1,0 +1,12 @@
+// STF dili: kart üstündeki LED'i saniyede bir yakıp söndürür.
+
+kur
+    // "led" pini Devre sekmesinde D13'e bağlı, kendiliğinden hazırlanır.
+son
+
+döngü
+    yak(led)
+    bekle(1000)   // bir saniye bekle
+    söndür(led)
+    bekle(1000)
+son

@@ -122,6 +122,7 @@ function buildMenu() {
       label: t('menu.file'),
       submenu: [
         { label: t('menu.newSketch'), accelerator: 'CmdOrCtrl+N', click: menu('new') },
+        { label: t('menu.newStfSketch'), accelerator: 'CmdOrCtrl+Alt+N', click: menu('newStf') },
         { label: t('menu.open'), accelerator: 'CmdOrCtrl+O', click: menu('open') },
         { label: t('menu.save'), accelerator: 'CmdOrCtrl+S', click: menu('save') },
         { label: t('menu.saveAs'), accelerator: 'CmdOrCtrl+Shift+S', click: menu('saveAs') },
@@ -222,12 +223,13 @@ function registerIpc() {
     return rememberSketch(createSketch(sketchbookDir()));
   });
   handle('sketch:new', () => rememberSketch(createSketch(sketchbookDir())));
+  handle('sketch:newStf', () => rememberSketch(createSketch(sketchbookDir(), new Date(), { stf: true })));
   handle('sketch:open', async () => {
     const r = await dialog.showOpenDialog(win, {
       title: t('dialog.openSketch'),
       defaultPath: sketchbookDir(),
       properties: ['openFile'],
-      filters: [{ name: 'Sketches', extensions: ['ino'] }],
+      filters: [{ name: 'Sketches', extensions: ['ino', 'stf'] }],
     });
     if (r.canceled || !r.filePaths[0]) return null;
     return rememberSketch(loadSketch(resolveSketchDir(r.filePaths[0])));
@@ -244,7 +246,7 @@ function registerIpc() {
       properties: ['createDirectory', 'showOverwriteConfirmation'],
     });
     if (r.canceled || !r.filePath) return null;
-    const name = path.basename(r.filePath).replace(/\.ino$/i, '');
+    const name = path.basename(r.filePath).replace(/\.(ino|stf)$/i, '');
     if (!isValidSketchName(name)) throw new Error(`"${name}" can't be used as a sketch name. Use letters, numbers, _ and -.`);
     const target = path.join(path.dirname(r.filePath), name);
     return rememberSketch(copySketch(dir, target, data));

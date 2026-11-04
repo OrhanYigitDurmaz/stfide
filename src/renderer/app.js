@@ -6,6 +6,7 @@ import { LANGUAGE_NAMES, getLanguage, setLanguage, t } from '../common/i18n.js';
 import { GENERATED_FILES, BAUD_RATES, emptyConfig, generate, hasErrors, validate } from '../common/pins.js';
 import { friendlyHints, parseDiagnostics, parseSize } from '../common/diagnostics.js';
 import { DEFAULT_FONT_SIZE, Editor, FONT_SIZES, loadMonaco } from './editor.js';
+import { cevir } from '../common/stf/index.js';
 import { PinsView } from './pins-view.js';
 
 const api = window.stfide;
@@ -60,6 +61,7 @@ async function init() {
         renderTabs();
         syncDirty();
       }
+      if (name === state.sketch?.main && isStf()) scheduleStfPreview();
     },
     onCursor: (pos) => {
       $('#status-pos').textContent = `Ln ${pos.lineNumber}, Col ${pos.column}`;
@@ -72,7 +74,9 @@ async function init() {
     getSources: () => state.files.filter((f) => !f.generated).map((f) => editor.getContent(f.name)),
     onInsertHandler: (fn) => {
       showView('code');
-      editor.insertAtEnd(state.sketch.main, `\n// Runs when the interrupt pin triggers. Keep it short.\nvoid ${fn}() {\n  \n}\n`);
+      editor.insertAtEnd(state.sketch.main, isStf()
+        ? `\n// Kesme pini tetiklenince çalışır. Kısa tut.\nişlev ${fn}()\n    \nson\n`
+        : `\n// Runs when the interrupt pin triggers. Keep it short.\nvoid ${fn}() {\n  \n}\n`);
     },
   });
 
@@ -132,16 +136,21 @@ function openSketch(sketch) {
   state.sketch = { dir: sketch.dir, name: sketch.name, main: sketch.main };
   state.config = sketch.config;
   state.configDirty = false;
-  const userFiles = sketch.files.filter((f) => !GENERATED_FILES.includes(f.name));
+  const userFiles = sketch.files.filter((f) => !GENERATED_FILES.includes(f.name) && f.name !== stfPreviewName());
   const generated = generate(state.config);
+  // An STF sketch also gets a read-only tab with the C++ it is translated to.
+  const preview = isStf() ? [{ name: stfPreviewName(), generated: true, preview: true, dirty: false }] : [];
   state.files = [
     ...userFiles.map((f) => ({ name: f.name, generated: false, dirty: false })),
+    ...preview,
     ...GENERATED_FILES.map((name) => ({ name, generated: true, dirty: false })),
   ];
   editor.setFiles([
     ...userFiles,
+    ...preview.map((f) => ({ name: f.name, content: '' })),
     ...GENERATED_FILES.map((name) => ({ name, content: generated[name] })),
   ]);
+  if (isStf()) updateStfPreview();
   editor.setConfig(state.config);
   editor.setDiagnostics([]);
   state.active = sketch.main;
@@ -151,6 +160,33 @@ function openSketch(sketch) {
   syncDirty();
   document.title = `${sketch.name} | STFIDE`;
   status('');
+}
+
+// ---------------------------------------------------------------------------
+// STF language sketches (Name.stf, see src/common/stf/)
+
+function isStf() {
+  return Boolean(state.sketch?.main.endsWith('.stf'));
+}
+
+// Same name as the file the build translates to (toolchain.js stfOutputName).
+function stfPreviewName() {
+  return `${state.sketch?.name}_stf.cpp`;
+}
+
+let stfTimer = null;
+function scheduleStfPreview() {
+  clearTimeout(stfTimer);
+  stfTimer = setTimeout(updateStfPreview, 250);
+}
+
+// Translates while typing: STF errors are marked at once, and the C++ tab
+// always shows what will be compiled.
+function updateStfPreview() {
+  const main = state.sketch.main;
+  const r = cevir(editor.getContent(main), { dosya: main });
+  editor.setMarkers(main, 'stf', r.hata ? [{ line: r.hata.line, column: r.hata.col, severity: 'error', message: r.hata.message }] : []);
+  editor.replaceContent(stfPreviewName(), r.kod ?? `// ${main}:${r.hata.line}: ${r.hata.message}\n`);
 }
 
 function setConfig(cfg) {
@@ -252,10 +288,11 @@ function renderTabs() {
   const bar = $('#file-tabs');
   bar.replaceChildren();
   // Generated pin files are not tabs; they are shown on the Circuit tab.
-  for (const f of state.files.filter((x) => !x.generated)) {
+  for (const f of state.files.filter((x) => !x.generated || x.preview)) {
     const b = document.createElement('button');
-    b.className = `tab${f.name === state.active ? ' active' : ''}`;
-    b.textContent = f.name;
+    b.className = `tab${f.name === state.active ? ' active' : ''}${f.preview ? ' preview' : ''}`;
+    b.textContent = f.preview ? t('tabs.stfPreview') : f.name;
+    if (f.preview) b.title = f.name;
     if (f.dirty) {
       const dot = document.createElement('span');
       dot.className = 'dot';
@@ -588,6 +625,9 @@ const actions = {
   upload: () => build(true),
   new: async () => {
     if (await confirmDiscard()) openSketch(await api.sketch.create());
+  },
+  newStf: async () => {
+    if (await confirmDiscard()) openSketch(await api.sketch.createStf());
   },
   open: async () => {
     if (!(await confirmDiscard())) return;

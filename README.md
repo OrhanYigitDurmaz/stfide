@@ -67,6 +67,56 @@ Generated files are always rewritten in full. They don't get editor tabs; you
 can read them at the bottom of the Circuit tab. There are no "USER CODE" markers to keep intact, and regenerating can never break your
 code.
 
+## STF dili (Turkish-syntax language)
+
+STFIDE also has its own small language with Turkish keywords. *File > New STF Sketch* creates `Name.stf` instead of `Name.ino`. When you verify or upload, STFIDE translates it to Arduino C++ (`Name_stf.cpp`, shown read-only on the *C++ (üretilen)* tab) and compiles that with arduino-cli. Errors from the translator and from the C++ compiler are marked on the `.stf` line. The examples `YakSondurSTF`, `IsiAlarmiSTF` and `MelodiSTF` use it.
+
+```
+sayı notalar[] = [262, 294, 330]
+
+kur
+    seri_başlat(9600)
+son
+
+döngü
+    eğer analog_oku(A0) > 500 ise
+        yak(led)
+    değilse
+        söndür(led)
+    son
+    her i için 0'dan 2'ye kadar
+        ses(buzzer, notalar[i], 200)
+    son
+    yaz("Değer: ", analog_oku(A0))
+    bekle(500)
+son
+
+işlev kare(sayı n) sayı
+    döndür n * n
+son
+```
+
+| STF | Arduino C++ |
+| --- | --- |
+| `kur` / `döngü` ... `son` | `setup()` (calls `stfkartBegin()`) / `loop()` |
+| `sayı` `uzun` `ondalık` `metin` `mantık` `bayt`, `sabit` | `int` `long` `float` `String` `bool` `byte`, `const` |
+| `eğer ... ise` / `değilse eğer ... ise` / `değilse` | `if` / `else if` / `else` |
+| `iken ... tekrarla`, `N kez tekrarla`, `sürekli tekrarla` | `while`, counted `for`, `while (true)` |
+| `her i için 1'den 10'a kadar [adım 2]` | `for (int i = 1; i <= 10; i += 2)` (counts down when start > end) |
+| `kır`, `atla`, `işlev`, `döndür` | `break`, `continue`, function, `return` |
+| `ve` `veya` `değil`, `doğru` `yanlış`, `YÜKSEK` `DÜŞÜK` | `&&` `\|\|` `!`, `true` `false`, `HIGH` `LOW` |
+| `çıkış` `giriş` `yak` `söndür` `oku` `analog_oku` `analog_yaz` `bekle` `yaz` `ses` ... | `pinMode` `digitalWrite` `digitalRead` `analogRead` `analogWrite` `delay` `Serial.println` `tone` ... |
+
+Keywords and names also work without Turkish letters (`eger`, `dongu`). Turkish names become ASCII in C++ (`sıcaklık` -> `sicaklik`). Pin and component names from the Circuit tab, and any Arduino call (`lcd.print(...)`), can be used as they are. The full list of built-in functions is in `src/common/stf/codegen.js`.
+
+The translator is plain JavaScript with no dependencies, in `src/common/stf/`: `lexer.js` (text to tokens), `parser.js` (a hand-written recursive-descent parser, tokens to syntax tree), `codegen.js` (tree to C++ with `#line` directives). It also runs from the command line:
+
+```
+node scripts/stf.js examples/IsiAlarmiSTF/IsiAlarmiSTF.stf          # print the C++
+node scripts/stf.js --tokens examples/IsiAlarmiSTF/IsiAlarmiSTF.stf # show tokens
+node scripts/stf.js --ast examples/IsiAlarmiSTF/IsiAlarmiSTF.stf    # show the syntax tree
+```
+
 ## Development
 
 Requires Node.js 22.
@@ -95,9 +145,10 @@ build artifacts.
 src/main/        Electron main process: window, menus, arduino-cli, serial ports
 src/renderer/    UI: toolbar, editor, Circuit tab, output, serial monitor
 src/common/      Shared by both: board definition, pin model + codegen, components, i18n, diagnostics
+src/common/stf/  STF language translator (Turkish syntax to Arduino C++)
 resources/hardware/stfkart/   arduino-cli platform for STFKart (FQBN stfkart:avr:stfkart)
 examples/        Example sketches with their pin setups
-scripts/         fetch-toolchain.js
+scripts/         fetch-toolchain.js, stf.js (STF translator command line)
 ```
 
 ### When the STFKart hardware is final

@@ -172,12 +172,14 @@ export const tr = {
   'dialog.badTabName': 'Harf, rakam ve _ kullanın; .ino, .h, .cpp veya .c ile bitsin.',
   'dialog.tabExists': 'Bu adda bir dosya zaten var.',
   'tabs.new': 'Yeni sekme',
+  'tabs.stfPreview': 'C++ (üretilen)',
   'status.boardOn': '{board}, {port} portunda',
   'status.notConnected': '{board} (bağlı değil)',
 
   // menus
   'menu.file': 'Dosya',
   'menu.newSketch': 'Yeni Taslak',
+  'menu.newStfSketch': 'Yeni STF Taslağı (Türkçe)',
   'menu.open': 'Aç…',
   'menu.save': 'Kaydet',
   'menu.saveAs': 'Farklı Kaydet…',

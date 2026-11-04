@@ -16,6 +16,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { BOARD } from '../common/board.js';
 import { HEADER_FILE } from '../common/pins.js';
+import { cevir, hataSatiri } from '../common/stf/index.js';
 
 const EXE = process.platform === 'win32' ? 'arduino-cli.exe' : 'arduino-cli';
 
@@ -83,7 +84,16 @@ export class Toolchain {
   // (like Arduino.h). Paths in the output are mapped back to the real sketch.
   compile(sketchDir, { port, upload, onOutput }) {
     const hash = crypto.createHash('sha1').update(sketchDir).digest('hex').slice(0, 12);
-    const staged = stageSketch(sketchDir, path.join(this.buildRoot, hash, 'staged'));
+    let staged;
+    try {
+      staged = stageSketch(sketchDir, path.join(this.buildRoot, hash, 'staged'));
+    } catch (err) {
+      if (!(err instanceof StfTranslateError)) throw err;
+      // Reported like a gcc error so the editor marks the line.
+      const text = `${err.message}\n`;
+      onOutput?.(text, 'stderr');
+      return Promise.resolve({ code: 1, stdout: '', stderr: text, chunks: [{ text, stream: 'stderr' }] });
+    }
     const args = [
       'compile',
       '--fqbn', BOARD.fqbn,
@@ -136,6 +146,11 @@ export class Toolchain {
 
 export const AUTO_INCLUDE = `#include "${HEADER_FILE}"`;
 
+// Name of the C++ file an STF sketch (Name.stf) is translated to.
+export const stfOutputName = (sketchName) => `${sketchName}_stf.cpp`;
+
+export class StfTranslateError extends Error {}
+
 // Mirrors the sketch folder into `dest`, writing only files that changed so
 // arduino-cli's incremental build keeps working, and prepends the pin header
 // include to the main .ino. `#line 1` keeps compiler line numbers matching
@@ -144,19 +159,30 @@ export function stageSketch(sketchDir, stagingRoot) {
   const name = path.basename(sketchDir);
   const dest = path.join(stagingRoot, name);
   const wanted = new Set();
+  const put = (r, content) => {
+    wanted.add(r);
+    const out = path.join(dest, r);
+    if (fs.existsSync(out) && fs.readFileSync(out).equals(content)) return;
+    fs.mkdirSync(path.dirname(out), { recursive: true });
+    fs.writeFileSync(out, content);
+  };
   const walk = (rel) => {
     for (const entry of fs.readdirSync(path.join(sketchDir, rel), { withFileTypes: true })) {
       if (entry.name.startsWith('.')) continue;
       const r = path.join(rel, entry.name);
       if (entry.isDirectory()) walk(r);
       else if (entry.isFile()) {
-        wanted.add(r);
         let content = fs.readFileSync(path.join(sketchDir, r));
+        if (r === `${name}.stf`) {
+          // STF sketch: translate to C++. arduino-cli still needs a Name.ino.
+          const res = cevir(String(content), { dosya: r, pinBasligi: HEADER_FILE });
+          if (res.hata) throw new StfTranslateError(hataSatiri(path.join(sketchDir, r), res.hata));
+          put(`${name}.ino`, Buffer.from(`// STF sketch: the program is in ${stfOutputName(name)}, translated from ${r}.\n`));
+          put(stfOutputName(name), Buffer.from(res.kod));
+          continue;
+        }
         if (r === `${name}.ino`) content = Buffer.from(`${AUTO_INCLUDE}\n#line 1\n${content}`);
-        const out = path.join(dest, r);
-        if (fs.existsSync(out) && fs.readFileSync(out).equals(content)) continue;
-        fs.mkdirSync(path.dirname(out), { recursive: true });
-        fs.writeFileSync(out, content);
+        put(r, content);
       }
     }
   };

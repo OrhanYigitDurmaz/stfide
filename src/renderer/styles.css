@@ -148,6 +148,7 @@ button svg { width: 18px; height: 18px; }
   display: flex; align-items: center; gap: 6px;
 }
 .file-tabs .tab.active { background: var(--bg); color: var(--text); box-shadow: inset 0 2px var(--accent); }
+.file-tabs .tab.preview { font-style: italic; opacity: .8; }
 .file-tabs .tab .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text); }
 .file-tabs .tab .close { opacity: .6; padding: 0 2px; }
 .file-tabs .tab .close:hover { opacity: 1; }
