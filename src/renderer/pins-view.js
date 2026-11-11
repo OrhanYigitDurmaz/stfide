@@ -9,7 +9,7 @@ import {
 } from '../common/pins.js';
 import { COMPONENTS } from '../common/components.js';
 import {
-  BOARD_PART, COMM, COMMON_RESISTORS, PARTS, bandLabel, commLabel, formatResistance, optionLabel, parseResistance,
+  BOARD_PART, COMMON_RESISTORS, PARTS, bandLabel, busesFor, commLabel, formatResistance, optionLabel, parseResistance,
   partHint, partLabel, resistorBands,
 } from '../common/parts.js';
 import { deriveFromCircuit } from '../common/circuit.js';
@@ -201,12 +201,14 @@ export class PinsView {
     const derived = deriveFromCircuit(circuit);
     const issues = validate(cfg);
     const s = this.selection;
+    // The buses are the board's settings, so there they come before its pins.
+    const buses = this.renderBuses(cfg, derived, busesFor(circuit, s));
     this.inspector.replaceChildren(...[
       s?.kind === 'part' ? this.renderPart(cfg, derived, s.id)
         : s?.kind === 'wire' ? this.renderWire(cfg, s.id)
-          : s?.kind === 'board' ? this.renderBoard(cfg, derived)
+          : s?.kind === 'board' ? this.renderBoard(cfg, derived, buses)
             : this.renderHelp(),
-      this.renderBuses(cfg, derived, s?.kind === 'part' ? this.partBuses(circuit, s.id) : null),
+      s?.kind === 'board' ? null : buses,
       this.renderIssues(issues),
       this.renderGenerated(cfg),
     ].filter(Boolean));
@@ -245,8 +247,9 @@ export class PinsView {
       section.append(h('label', { class: 'field' }, h('span', {}, optionLabel(o)), input));
     }
 
+    // A part that produces no code (a resistor) has no protocol to speak of.
     const comm = def.comm ?? 'nocomm';
-    section.append(h('div', { class: 'field' }, h('span', {}, t('circuit.protocol')),
+    if (def.bind || comm !== 'nocomm') section.append(h('div', { class: 'field' }, h('span', {}, t('circuit.protocol')),
       h('span', { class: 'caps' }, h('span', { class: `chip comm ${comm}` }, commLabel(comm)))));
 
     // What it ended up connected to, and how to use it in code.
@@ -314,12 +317,6 @@ export class PinsView {
     ];
   }
 
-  // The buses a selected part talks over; null when it isn't a part.
-  partBuses(circuit, id) {
-    const part = circuit.parts.find((p) => p.id === id);
-    return part ? COMM[PARTS[part.type].comm ?? 'nocomm'].buses : null;
-  }
-
   renderWire(cfg, id) {
     const wire = cfg.circuit.wires.find((w) => w.id === id);
     return h('section', {},
@@ -338,7 +335,7 @@ export class PinsView {
 
   // The board: every signal pin and what uses it. Pins no part is wired to
   // can still be given a role by hand (plain digital input/output etc).
-  renderBoard(cfg, derived) {
+  renderBoard(cfg, derived, buses) {
     const byPin = new Map();
     const use = (pin, partId, label) => {
       const u = byPin.get(pin);
@@ -364,6 +361,8 @@ export class PinsView {
     });
     return h('section', {},
       h('h2', {}, BOARD.name),
+      ...(buses?.childNodes ?? []),
+      h('h3', {}, t('circuit.boardPins')),
       h('p', { class: 'empty' }, t('circuit.boardHint')),
       h('table', { class: 'pin-table' }, h('tbody', {}, rows)),
       this.selectedPin && !byPin.has(this.selectedPin) ? this.renderPinSection(cfg) : null);
@@ -439,10 +438,10 @@ export class PinsView {
     return section;
   }
 
-  // only: bus keys to show (for the selected part), or null for all of them.
-  renderBuses(cfg, derived, only = null) {
-    if (only && !only.length) return null;
-    const shown = (key) => !only || only.includes(key);
+  // only: the bus keys to show for the selection (see busesFor).
+  renderBuses(cfg, derived, only) {
+    if (!only.length) return null;
+    const shown = (key) => only.includes(key);
     const bus = (key, label, pins, extra, forced) => h('div', { class: 'periph' },
       h('label', { class: 'head', title: forced ? t('circuit.i2cForced') : '' },
         h('input', {
