@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { COMPONENTS } from '../src/common/components.js';
 import {
-  COMM, COMMON_RESISTORS, PARTS, formatResistance, parseResistance, resistorBands,
+  BUSES, COMM, COMMON_RESISTORS, PARTS, busesFor, formatResistance, parseResistance, resistorBands,
 } from '../src/common/parts.js';
 
 test('every part names a known communication protocol', () => {
@@ -24,6 +24,27 @@ test('protocols match how the parts are wired', () => {
   assert.equal(PARTS.dht22.comm, 'singlewire');
   assert.equal(PARTS.neopixelRing.comm, 'singlewire');
   assert.deepEqual(COMM.nocomm.buses, []);
+});
+
+test('bus settings are shown only where they belong', () => {
+  const parts = Object.keys(PARTS).map((type) => ({ id: type, type }));
+  const wires = [
+    { id: 'w1', from: { part: 'led', pin: 'A' }, to: { part: 'resistor', pin: '1' } },
+    { id: 'w2', from: { part: 'lcd1602', pin: 'SDA' }, to: { part: 'board', pin: 'A4' } },
+    { id: 'w3', from: { part: 'resistor', pin: '2' }, to: { part: 'board', pin: '13' } },
+  ];
+  const circuit = { parts, wires };
+  for (const { id, type } of parts) {
+    const expected = PARTS[type].comm === 'i2c' ? ['i2c'] : [];
+    assert.deepEqual(busesFor(circuit, { kind: 'part', id }), expected, type);
+  }
+  assert.deepEqual(busesFor(circuit, null), []);
+  assert.deepEqual(busesFor(circuit, { kind: 'wire', id: 'w1' }), []);
+  assert.deepEqual(busesFor(circuit, { kind: 'wire', id: 'w3' }), []);
+  assert.deepEqual(busesFor(circuit, { kind: 'wire', id: 'w2' }), ['i2c']);
+  assert.deepEqual(busesFor(circuit, { kind: 'wire', id: 'gone' }), []);
+  assert.deepEqual(busesFor(circuit, { kind: 'part', id: 'gone' }), []);
+  assert.deepEqual(busesFor(circuit, { kind: 'board', id: 'board' }), BUSES);
 });
 
 test('resistor values can be typed the usual ways', () => {

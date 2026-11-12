@@ -178,6 +178,9 @@ export const PARTS = {
 // Communication protocols. `buses` are the board buses (keys of the config's
 // serial/i2c/spi settings) the part needs; only those are shown while it is
 // selected.
+// The board's buses, in the order the inspector lists them.
+export const BUSES = ['serial', 'i2c', 'spi'];
+
 export const COMM = {
   nocomm: { label: 'None, plain pin signal', buses: [] },
   i2c: { label: 'I2C', buses: ['i2c'] },
@@ -188,6 +191,25 @@ export const COMM = {
 };
 
 export const BOARD_PART = 'board';
+
+// The bus settings the inspector shows for what is selected on the canvas
+// ({ kind: 'part' | 'wire' | 'board', id } or null): a part shows only the
+// buses it talks over, a wire those of the parts at its ends, and the board
+// all of them, since the buses are the board's own settings. Passive parts
+// (resistor, LED, button...) and an empty selection show none.
+export function busesFor(circuit, selection) {
+  const ofPart = (id) => {
+    const part = circuit.parts.find((p) => p.id === id);
+    return part ? COMM[PARTS[part.type]?.comm ?? 'nocomm'].buses : [];
+  };
+  if (selection?.kind === 'board') return BUSES;
+  if (selection?.kind === 'part') return ofPart(selection.id);
+  if (selection?.kind === 'wire') {
+    const wire = circuit.wires.find((w) => w.id === selection.id);
+    return wire ? [...new Set([wire.from, wire.to].flatMap((end) => ofPart(end.part)))] : [];
+  }
+  return [];
+}
 
 // ---- resistor values ---------------------------------------------------
 
